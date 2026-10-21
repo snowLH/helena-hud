@@ -1,0 +1,20 @@
+{
+  "name": "helena-hud-local",
+  "version": "1.0.0",
+  "description": "H.E.L.E.N.A. - Heurística de Execução Local e Estruturação Neural Autônoma (100% Local & Offline HUD)",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "build": "cd client && npm install && npm run build",
+    "vercel-build": "cd client && npm install && npm run build",
+    "build:client": "cd client && npm run build",
+    "dev:client": "cd client && npm run dev",
+    "install:all": "npm install && cd client && npm install"
+  },
+  "dependencies": {
+    "@bestcodes/edge-tts": "^3.0.1",
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  }
+}

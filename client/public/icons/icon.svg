@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1e0b36" />
+      <stop offset="60%" stop-color="#0b0410" />
+      <stop offset="100%" stop-color="#050208" />
+    </radialGradient>
+    <radialGradient id="coreGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="25%" stop-color="#00f0ff" />
+      <stop offset="70%" stop-color="#a855f7" />
+      <stop offset="100%" stop-color="rgba(168, 85, 247, 0)" />
+    </radialGradient>
+    <filter id="neonGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="blur1" />
+      <feGaussianBlur stdDeviation="16" result="blur2" />
+      <feMerge>
+        <feMergeNode in="blur2" />
+        <feMergeNode in="blur1" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="512" height="512" rx="100" fill="url(#bgGrad)" />
+
+  <!-- Outer HUD Ring -->
+  <circle cx="256" cy="256" r="210" fill="none" stroke="rgba(168, 85, 247, 0.3)" stroke-width="2" />
+  <circle cx="256" cy="256" r="195" fill="none" stroke="#00f0ff" stroke-width="3" stroke-dasharray="16 12" filter="url(#neonGlow)" />
+  
+  <!-- Degree Ticks -->
+  <g stroke="#00f0ff" stroke-width="2" opacity="0.6">
+    <line x1="256" y1="46" x2="256" y2="62" />
+    <line x1="256" y1="450" x2="256" y2="466" />
+    <line x1="46" y1="256" x2="62" y2="256" />
+    <line x1="450" y1="256" x2="466" y2="256" />
+  </g>
+
+  <!-- Gyro Rings -->
+  <ellipse cx="256" cy="256" rx="160" ry="60" fill="none" stroke="#c084fc" stroke-width="2.5" stroke-dasharray="24 16" transform="rotate(-30 256 256)" filter="url(#neonGlow)" />
+  <ellipse cx="256" cy="256" rx="160" ry="60" fill="none" stroke="#00f0ff" stroke-width="2.5" stroke-dasharray="20 14" transform="rotate(45 256 256)" filter="url(#neonGlow)" />
+
+  <!-- Inner Circle HUD -->
+  <circle cx="256" cy="256" r="110" fill="none" stroke="rgba(0, 240, 255, 0.4)" stroke-width="1.5" />
+  <circle cx="256" cy="256" r="85" fill="none" stroke="#a855f7" stroke-width="2" stroke-dasharray="8 6" />
+
+  <!-- Glowing Core -->
+  <circle cx="256" cy="256" r="75" fill="url(#coreGrad)" filter="url(#neonGlow)" />
+
+  <!-- H.E.L.E.N.A. Central Emblem -->
+  <text x="256" y="278" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="64" fill="#ffffff" text-anchor="middle" letter-spacing="4" filter="url(#neonGlow)">H</text>
+
+  <!-- Corner Brackets -->
+  <path d="M 70 110 L 70 70 L 110 70" fill="none" stroke="#00f0ff" stroke-width="3" />
+  <path d="M 442 110 L 442 70 L 402 70" fill="none" stroke="#00f0ff" stroke-width="3" />
+  <path d="M 70 402 L 70 442 L 110 442" fill="none" stroke="#00f0ff" stroke-width="3" />
+  <path d="M 442 402 L 442 442 L 402 442" fill="none" stroke="#00f0ff" stroke-width="3" />
+</svg>
