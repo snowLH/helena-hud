@@ -30,6 +30,12 @@ echo [1/3] Node.js detectado com sucesso.
 node -v
 echo.
 
+if not exist "%~dp0dist\" (
+    echo [*] Compilando interface HUD para execucao offline...
+    call npm.cmd run build
+    echo.
+)
+
 REM 3. Iniciar Servidor Backend Local na porta 3000
 echo [2/3] Iniciando servidor Express local na porta 3000...
 start "HELENA_CORE_SERVER" /min cmd /c "node server.js"

@@ -12,10 +12,13 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Serve static build from client/dist if available
-const clientDistPath = path.join(__dirname, 'client', 'dist');
-if (fs.existsSync(clientDistPath)) {
-  app.use(express.static(clientDistPath));
+// Serve static build from dist (or client/dist fallback)
+const distPath = fs.existsSync(path.join(__dirname, 'dist'))
+  ? path.join(__dirname, 'dist')
+  : path.join(__dirname, 'client', 'dist');
+
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
 }
 
 const DADOS_PESSOAIS_PATH = path.join(__dirname, 'dados_pessoais.json');
@@ -784,7 +787,7 @@ app.get('/api/network/info', (req, res) => {
 
 // Fallback SPA catch-all
 app.get('*', (req, res) => {
-  const indexHtml = path.join(clientDistPath, 'index.html');
+  const indexHtml = path.join(distPath, 'index.html');
   if (fs.existsSync(indexHtml)) {
     res.sendFile(indexHtml);
   } else {
