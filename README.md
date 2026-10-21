@@ -28,24 +28,13 @@ H.E.L.E.N.A. é uma aplicação Full-Stack desenvolvida tanto para rodar de form
 
 ---
 
-## 🚀 Como Sincronizar com o seu GitHub
+## 🚀 Sincronização com GitHub (Configurado para `snowLH`)
 
-O repositório Git local já foi inicializado e o commit inicial já foi gerado na branch `main`.
+O repositório já está sincronizado com a sua conta GitHub:
+- **Repositório**: [https://github.com/snowLH/helena-hud](https://github.com/snowLH/helena-hud)
+- **Branch**: `main`
 
-Para enviar para a sua conta do GitHub:
-
-1. Acesse [github.com/new](https://github.com/new) e crie um novo repositório (exemplo: `helena-hud`). Deixe-o vazio (sem README inicial).
-2. No seu terminal, execute os comandos:
-
-```bash
-cd C:\Users\user\.gemini\antigravity\scratch\helena-hud-local
-
-git remote add origin https://github.com/SEU_USUARIO/SEU_REPOSITORIO.git
-git branch -M main
-git push -u origin main
-```
-
-A partir daí, qualquer alteração que você fizer pode ser enviada com:
+Qualquer nova alteração pode ser enviada com:
 ```bash
 git add .
 git commit -m "atualização do hud"
@@ -54,17 +43,18 @@ git push
 
 ---
 
-## ☁️ Como Publicar no Vercel (1 Clique)
+## ☁️ Publicação no Vercel
 
 1. Acesse [vercel.com](https://vercel.com) e faça login com sua conta do GitHub.
 2. Clique em **"Add New..." ➔ "Project"**.
-3. Selecione o repositório **`helena-hud`** que você acabou de enviar ao GitHub.
-4. O Vercel detectará automaticamente as configurações de build do `vercel.json`:
-   - **Framework Preset**: *Vite* (ou *Other*)
-   - **Build Command**: `cd client && npm install && npm run build`
-   - **Output Directory**: `client/dist`
-5. Clique em **"Deploy"**.
-6. Em cerca de 1 minuto, sua H.E.L.E.N.A. estará pública na internet com uma URL própria (ex: `https://helena-hud.vercel.app`) com HTTPS gratuito e deploy automático a cada `git push`!
+3. Selecione o repositório **`snowLH/helena-hud`**.
+4. O Vercel detectará o projeto automaticamente:
+   - **Framework Preset**: *Vite*
+   - **Root Directory**: `./` (padrão)
+   - **Build Command**: `vite build`
+   - **Output Directory**: `dist`
+5. Clique em **"Deploy"** (ou se já criou o projeto, acione **"Redeploy"** no painel do Vercel).
+6. Em menos de 1 minuto, a H.E.L.E.N.A. estará online com HTTPS gratuito e deploy contínuo automático a cada `git push`!
 
 ---
 
