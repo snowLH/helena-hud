@@ -1,87 +1,89 @@
 # H.E.L.E.N.A. — Heurística de Execução Local e Estruturação Neural Autônoma
-> **HUD Futurista 100% Local, Offline e Portátil para Windows (Zero-API)**
+> **HUD Futurista J.A.R.V.I.S. (100% Local, PWA Instalável e Pronta para Vercel)**
 
-H.E.L.E.N.A. é uma aplicação Full-Stack desenvolvida para rodar diretamente a partir de um **pen drive** ou de qualquer pasta local no Windows sem necessidade de chaves de API externas, sem dependência de nuvem e sem custos.
+H.E.L.E.N.A. é uma aplicação Full-Stack desenvolvida tanto para rodar de forma **100% local e portátil no Windows a partir de um pen drive**, quanto como um **PWA (Progressive Web App) instalável** no celular/desktop e pronta para ser publicada na nuvem com **deploy contínuo no Vercel via GitHub**.
 
 ---
 
 ## ⚡ Principais Capacidades
 
-1. **Zero APIs Externas (100% On-Premise e Privativo)**:
-   - Proibição de APIs pagas: Não requer OpenAI, Google Gemini ou ElevenLabs.
-   - **Motor Híbrido Local (`/api/helena/brain`)**:
-     - **Motor Especialista Nativo**: Gera instantaneamente os textos de fala e cartões da H.E.L.E.N.A. a partir de regras dinâmicas e telemetria real do Windows.
-     - **Conector LLM Local Opcional**: Conecta-se automaticamente a `http://127.0.0.1:8080/v1/chat/completions` (padrão `llama-server.exe` / `Ollama`) se houver um modelo `.gguf` rodando localmente no pen drive, com fallback automático imediato para o motor nativo.
-   - **Voz e Efeitos Sonoros Offline**:
-     - Síntese de voz feminina em Português do Brasil (`pt-BR`) via `window.speechSynthesis`.
-     - Rota backend `/api/tts` preparada para executar binário portátil `runtime/piper.exe`.
-     - Sintetizador procedural de efeitos sonoros sci-fi via **Web Audio API** (bipes de telemetria, laser de varredura biométrica, confirmação de identidade e pulsos de transição energética).
-     - Reconhecimento de voz offline via `SpeechRecognition` (`webkitSpeechRecognition`).
+1. **Voz Neural J.A.R.V.I.S. Feminina (F.R.I.D.A.Y.) com Efeito Holográfico**:
+   - Adeus às vozes mecânicas do Windows: agora utiliza modelos neurais de estúdio (Edge TTS / Python) transmitidos via streaming em alta definição.
+   - **Voz J.A.R.V.I.S. Feminina (Francisca Neural)**: Tom aveludado (`-2Hz`) e cadência sofisticada (`+2%`).
+   - **Cadeia Acústica Holográfica (Web Audio DSP)**: Ressonância de sala holográfica (18ms comb filter), realce de presença em 3.4kHz e compressão broadcast idêntica aos filmes do Homem de Ferro.
+   - Cache em tempo real para respostas de voz instantâneas (100ms).
 
-2. **Telemetria e Otimização Real do Windows**:
-   - `GET /api/system/status`: CPU real (% de uso, modelo, núcleos), RAM real (usada, livre, total), espaço em disco C: (usado/livre), latência de rede (ping ms), arquivos acumulados em `%TEMP%`, e os 5 processos mais pesados no momento.
-   - `POST /api/system/optimize`: Bateria de otimização segura que apaga arquivos temporários órfãos em `os.tmpdir()`, libera memória virtual, renova cache DNS (`ipconfig /flushdns`) e ativa o plano de **Alto Desempenho** do Windows.
-   - `GET /api/briefing/data` e `POST /api/briefing/data`: Integração e edição do arquivo `dados_pessoais.json` no pen drive (Agenda, Prioridades, Metas e Clima).
+2. **PWA Instalável (Progressive Web App)**:
+   - Baixável diretamente pelo navegador em computadores (Windows/macOS), celulares (Android/iOS) e tablets.
+   - Ícones dedicados em alta resolução, tela cheia nativa sem barras de navegador (`display: standalone`) e Service Worker com suporte offline.
+   - Botão **`[ BAIXAR APP (PWA) ]`** integrado ao cabeçalho do HUD.
 
-3. **Interface Visual Sci-Fi HUD em Tela Cheia**:
-   - Fundo roxo-escuro profundo (`#0b0410`) com grade técnica translúcida e brilho radial no centro.
-   - Cabeçalho com indicadores em pill (`RECONHECIDO`, `CONSOLIDADO`, `BRIEFING ON`) e estado principal (`FALANDO` / `EM ESPERA`).
-   - Orbe Central 3D em `<canvas>` com anéis concêntricos giroscópicos, nuvem de partículas orbitais e retículo de mira. A velocidade e vibração aumentam quando a H.E.L.E.N.A. está falando.
-   - Biometria facial via webcam real (`getUserMedia`) com retículo de escaneamento holográfico.
-   - Painéis laterais com glassmorphism exibindo CPU, RAM, osciloscópio de voz e armazenamento.
-   - Máquina de estados interativa: os cartões são narrados no centro do orbe e deslizam suavemente via **Framer Motion** para a Dock inferior horizontal.
+3. **Deploy Automatizado no Vercel**:
+   - Configurada com `vercel.json` e `api/index.js` (Serverless Function).
+   - O frontend React é compilado na CDN de alta velocidade do Vercel e a API é executada sem necessidade de servidor dedicado.
+
+4. **Telemetria e Otimização do Windows**:
+   - `GET /api/system/status`: CPU, RAM, Disco C:, latência ping e top processos.
+   - `POST /api/system/optimize`: Limpeza de `%TEMP%`, liberação de DNS (`ipconfig /flushdns`) e ativação do plano de Alto Desempenho.
 
 ---
 
-## 🚀 Como Iniciar com 1 Clique (Pen Drive)
+## 🚀 Como Sincronizar com o seu GitHub
 
-Basta dar dois cliques no arquivo:
-```cmd
-Iniciar_HELENA.bat
+O repositório Git local já foi inicializado e o commit inicial já foi gerado na branch `main`.
+
+Para enviar para a sua conta do GitHub:
+
+1. Acesse [github.com/new](https://github.com/new) e crie um novo repositório (exemplo: `helena-hud`). Deixe-o vazio (sem README inicial).
+2. No seu terminal, execute os comandos:
+
+```bash
+cd C:\Users\user\.gemini\antigravity\scratch\helena-hud-local
+
+git remote add origin https://github.com/SEU_USUARIO/SEU_REPOSITORIO.git
+git branch -M main
+git push -u origin main
 ```
-O script cuidará de tudo:
-1. Verifica o Node.js.
-2. Inicializa o servidor backend local na porta 3000.
-3. Abre automaticamente o Google Chrome ou Microsoft Edge no modo de aplicativo em tela cheia (`--app=http://localhost:3000 --start-fullscreen`).
+
+A partir daí, qualquer alteração que você fizer pode ser enviada com:
+```bash
+git add .
+git commit -m "atualização do hud"
+git push
+```
 
 ---
 
-## 🎙️ Comandos de Voz Reconhecidos
+## ☁️ Como Publicar no Vercel (1 Clique)
 
-Diga ao microfone ou utilize os botões de ação rápida na tela:
-- **"Helena, bom dia"**: Dispara o Briefing Matinal completo (Biometria Facial ➔ Sincronização e Consolidação de Heurísticas ➔ Cartão de Hardware & Rede ➔ Cartão de Agenda ➔ Cartão de Prioridades ➔ Finalização).
-- **"Helena, otimizar computador"** (ou "otimizar o PC"): Dispara a limpeza real do computador, purga do `%TEMP%`, liberação de DNS e ativação de alto desempenho.
-- **"Helena, limpar memória"**: Diagnostica o consumo de RAM e lista processos pesados.
-- **"Helena, relatório de sistema"**: Exibe o diagnóstico completo da máquina.
+1. Acesse [vercel.com](https://vercel.com) e faça login com sua conta do GitHub.
+2. Clique em **"Add New..." ➔ "Project"**.
+3. Selecione o repositório **`helena-hud`** que você acabou de enviar ao GitHub.
+4. O Vercel detectará automaticamente as configurações de build do `vercel.json`:
+   - **Framework Preset**: *Vite* (ou *Other*)
+   - **Build Command**: `cd client && npm install && npm run build`
+   - **Output Directory**: `client/dist`
+5. Clique em **"Deploy"**.
+6. Em cerca de 1 minuto, sua H.E.L.E.N.A. estará pública na internet com uma URL própria (ex: `https://helena-hud.vercel.app`) com HTTPS gratuito e deploy automático a cada `git push`!
 
 ---
 
-## 📁 Estrutura de Arquivos
+## 📲 Como Instalar como PWA (No Celular ou PC)
 
+- **No Computador (Chrome/Edge)**:
+  - Abra o site e clique no botão **`[ BAIXAR APP (PWA) ]`** no topo, ou clique no ícone de instalar na barra de endereços do navegador (ao lado da estrela de favoritos).
+  - A H.E.L.E.N.A. se tornará uma janela autônoma de aplicativo sem bordas de navegador.
+- **No Celular (Android / iOS)**:
+  - Acesse o link pelo Chrome ou Safari.
+  - No menu de opções (três pontos ou botão Compartilhar), selecione **"Adicionar à tela de início"** ou **"Instalar Aplicativo"**.
+  - O ícone holográfico da H.E.L.E.N.A. será adicionado à grade de aplicativos do seu celular.
+
+---
+
+## 💾 Execução Local Portátil (Pen Drive)
+
+Para rodar offline diretamente no seu computador sem passar pela internet:
+```powershell
+.\Iniciar_HELENA.bat
 ```
-helena-hud-local/
-├── Iniciar_HELENA.bat      # Script portátil para pen drive (1-clique)
-├── server.js              # Servidor Express de telemetria e otimização
-├── dados_pessoais.json    # Base local editável de agenda, metas e preferências
-├── package.json           # Dependências do backend
-├── runtime/               # Pasta para extensões portáteis opcionais (piper.exe / .gguf)
-└── client/                # Interface React + Vite + TypeScript + Tailwind CSS
-    ├── src/
-    │   ├── audio/
-    │   │   ├── synth.ts   # Sintetizador procedural Web Audio API (sci-fi FX)
-    │   │   └── speech.ts  # Controlador TTS offline pt-BR
-    │   ├── components/
-    │   │   ├── EnergyOrb.tsx            # Orbe 3D e scanner biométrico
-    │   │   ├── AudioVisualizer.tsx      # Osciloscópio de modulação de voz
-    │   │   ├── Header.tsx               # Top bar com pills e estado
-    │   │   ├── LeftPanel.tsx            # Widgets de CPU e RAM
-    │   │   ├── RightPanel.tsx           # Widgets de Rede, Disco e Clima
-    │   │   ├── CardFocus.tsx            # Cartão de foco central
-    │   │   ├── ConsolidationOverlay.tsx # Sincronização de módulos
-    │   │   ├── BottomDock.tsx           # Dock horizontal de cartões
-    │   │   ├── CommandBar.tsx           # Barra de comandos e microfone
-    │   │   └── SettingsModal.tsx        # Editor de dados pessoais
-    │   ├── App.tsx
-    │   └── index.css
-    └── dist/              # Build estático pronto para produção
-```
+*(ou clique duas vezes no atalho da Área de Trabalho `Iniciar_HELENA.bat`)*
