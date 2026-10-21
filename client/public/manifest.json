@@ -1,0 +1,31 @@
+{
+  "name": "H.E.L.E.N.A. — Heurística Neural",
+  "short_name": "HELENA HUD",
+  "description": "Interface HUD Futurista J.A.R.V.I.S. (100% Offline e Portátil)",
+  "start_url": "/",
+  "id": "/",
+  "display": "standalone",
+  "background_color": "#0b0410",
+  "theme_color": "#0b0410",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

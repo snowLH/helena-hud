@@ -12,10 +12,12 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Serve static build from dist (or client/dist fallback)
+// Serve static build from dist (or client/dist or ../dist fallback)
 const distPath = fs.existsSync(path.join(__dirname, 'dist'))
   ? path.join(__dirname, 'dist')
-  : path.join(__dirname, 'client', 'dist');
+  : fs.existsSync(path.join(__dirname, 'client', 'dist'))
+    ? path.join(__dirname, 'client', 'dist')
+    : path.join(__dirname, '..', 'dist');
 
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath));

@@ -1,0 +1,110 @@
+{
+  "usuario": {
+    "nome": "Operador",
+    "titulo": "Comandante",
+    "preferenciaVoz": "feminina",
+    "cidade": "São Paulo, SP"
+  },
+  "clima": {
+    "cidade": "São Paulo",
+    "condicao": "Céu Parcialmente Ensolarado",
+    "temperatura": 24,
+    "minima": 18,
+    "maxima": 28,
+    "umidade": 65,
+    "ventoKmH": 14,
+    "probabilidadeChuva": "15%"
+  },
+  "agenda": [
+    {
+      "id": "ag-1",
+      "horario": "09:30",
+      "titulo": "Alinhamento Estratégico de Sistemas e Infraestrutura",
+      "status": "Confirmado",
+      "local": "Terminal Seguro / Sala Alpha",
+      "prioridade": "Alta"
+    },
+    {
+      "id": "ag-2",
+      "horario": "11:00",
+      "titulo": "Revisão Heurística de Telemetria e Otimização Windows",
+      "status": "Em Espera",
+      "local": "Estação Local",
+      "prioridade": "Média"
+    },
+    {
+      "id": "ag-3",
+      "horario": "14:30",
+      "titulo": "Validação de Cargas Neurais e Benchmarking Offline",
+      "status": "Planejado",
+      "local": "Ambiente de Testes",
+      "prioridade": "Alta"
+    },
+    {
+      "id": "ag-4",
+      "horario": "17:00",
+      "titulo": "Consolidação de Logs e Relatório Operacional",
+      "status": "Agendado",
+      "local": "H.E.L.E.N.A. Console",
+      "prioridade": "Baixa"
+    }
+  ],
+  "prioridades": [
+    {
+      "id": "pr-1",
+      "titulo": "Auditoria de Segurança de Processos Locais",
+      "descricao": "Garantir isolamento 100% offline e sem vazamento de telemetria.",
+      "urgencia": "Crítica",
+      "progresso": 85
+    },
+    {
+      "id": "pr-2",
+      "titulo": "Expurgar Lixo em %TEMP% e Otimizar DNS",
+      "descricao": "Executar ciclo de manutenção preventiva no sistema operacional.",
+      "urgencia": "Alta",
+      "progresso": 60
+    },
+    {
+      "id": "pr-3",
+      "titulo": "Revisão dos Compromissos e Protocolos Matinais",
+      "descricao": "Consolidar metas do dia e priorizar tarefas de alto impacto.",
+      "urgencia": "Média",
+      "progresso": 40
+    }
+  ],
+  "metas": [
+    {
+      "id": "mt-1",
+      "categoria": "Foco Operacional",
+      "descricao": "Concentração total nas primeiras 4 horas do dia sem interrupções triviais.",
+      "meta": "100%",
+      "concluido": true
+    },
+    {
+      "id": "mt-2",
+      "categoria": "Saúde e Ergonomia",
+      "descricao": "Hidratação regular (2.5L de água) e pausas visuais de 5 minutos.",
+      "meta": "2.5 Litros",
+      "concluido": false
+    },
+    {
+      "id": "mt-3",
+      "categoria": "Performance da Máquina",
+      "descricao": "Manter uso de RAM abaixo de 75% e latência de rede estável.",
+      "meta": "< 75% RAM",
+      "concluido": true
+    }
+  ],
+  "noticias_radares": [
+    {
+      "topico": "Segurança de Dados",
+      "manchete": "Adoção de arquiteturas Zero-API e processamento 100% on-premise cresce 42% no setor defensivo.",
+      "relevancia": "Alta"
+    },
+    {
+      "topico": "Hardware & Performance",
+      "manchete": "Novas diretrizes para descarte de caches efêmeros aceleram tempo de resposta de I/O em até 30%.",
+      "relevancia": "Média"
+    }
+  ]
+}
