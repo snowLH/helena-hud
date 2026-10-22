@@ -1195,9 +1195,12 @@ app.post('/api/tts', async (req, res) => {
     return res.status(400).json({ error: 'Texto não fornecido' });
   }
 
-  const selectedVoice = voice || 'pt-BR-FranciscaNeural';
-  const selectedRate = rate || '+2%';
-  const selectedPitch = pitch || '-2Hz';
+  // Padrão: Voz Ultra-Natural Feminina Multilingual (pt-BR-ThalitaMultilingualNeural)
+  const selectedVoice = voice && voice !== 'default' ? voice : 'pt-BR-ThalitaMultilingualNeural';
+  const rawRate = rate || '+0%';
+  const rawPitch = pitch || '+0Hz';
+  const selectedRate = (rawRate.startsWith('+') || rawRate.startsWith('-')) ? rawRate : `+${rawRate}`;
+  const selectedPitch = (rawPitch.startsWith('+') || rawPitch.startsWith('-')) ? rawPitch : `+${rawPitch}`;
 
   const hash = crypto.createHash('md5').update(`${selectedVoice}_${selectedRate}_${selectedPitch}_${cleanText}`).digest('hex');
   const cachedFilePath = path.join(ttsCacheDir, `${hash}.mp3`);

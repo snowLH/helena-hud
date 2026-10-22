@@ -12,37 +12,29 @@ export interface JarvisVoicePreset {
 
 export const JARVIS_VOICE_PRESETS: JarvisVoicePreset[] = [
   {
-    id: 'jarvis_francisca',
-    name: 'Helena Natural (Francisca Neural)',
-    voiceKey: 'pt-BR-FranciscaNeural',
-    description: 'Voz feminina humana, aveludada, refinada e ultra-natural.',
-    rate: '0%',
-    pitch: '0Hz',
+    id: 'helena_multilingual',
+    name: 'Helena Ultra-Natural (Multilingual Neural)',
+    voiceKey: 'pt-BR-ThalitaMultilingualNeural',
+    description: 'Voz feminina humana de última geração. Sem tom robótico, prosódia fluida e respiração realista.',
+    rate: '+0%',
+    pitch: '+0Hz',
     isJarvisDefault: true
   },
   {
-    id: 'friday_thalita',
-    name: 'F.R.I.D.A.Y. Ágil (Thalita Neural)',
-    voiceKey: 'pt-BR-ThalitaNeural',
-    description: 'Voz jovem, ágil, fluida e de alta precisão tecnológica.',
-    rate: '+1%',
-    pitch: '0Hz'
+    id: 'jarvis_francisca',
+    name: 'Helena Clássica (Francisca Neural)',
+    voiceKey: 'pt-BR-FranciscaNeural',
+    description: 'Voz feminina aveludada, refinada e suave estilo assistente executiva.',
+    rate: '+0%',
+    pitch: '+0Hz'
   },
   {
     id: 'helena_google',
     name: 'Helena Estúdio (Google Neural)',
     voiceKey: 'google_pt_br',
-    description: 'Voz limpa e expressiva em streaming direto de alta definição.',
-    rate: '0%',
-    pitch: '0Hz'
-  },
-  {
-    id: 'protocol_elza',
-    name: 'Protocolo Tático (Elza Neural)',
-    voiceKey: 'pt-BR-ElzaNeural',
-    description: 'Voz sóbria, analítica, assertiva e profissional.',
-    rate: '0%',
-    pitch: '-1Hz'
+    description: 'Voz limpa em streaming direto de alta definição para navegadores e nuvem.',
+    rate: '+0%',
+    pitch: '+0Hz'
   }
 ];
 
@@ -54,13 +46,17 @@ class SpeechController {
   public enabled: boolean = true;
 
   // Selected Neural Voice
-  public activePresetId: string = 'jarvis_francisca';
+  public activePresetId: string = 'helena_multilingual';
   public holographicEffect: boolean = false; // Padrão 100% natural sem metalizado
 
   constructor() {
     try {
       const savedPreset = localStorage.getItem('helena_jarvis_preset');
-      if (savedPreset) this.activePresetId = savedPreset;
+      if (savedPreset && JARVIS_VOICE_PRESETS.some((p) => p.id === savedPreset)) {
+        this.activePresetId = savedPreset;
+      } else {
+        this.activePresetId = 'helena_multilingual';
+      }
 
       const savedHolo = localStorage.getItem('helena_holographic_fx');
       if (savedHolo !== null) this.holographicEffect = savedHolo === 'true';
@@ -249,21 +245,33 @@ class SpeechController {
       const utterance = new SpeechSynthesisUtterance(cleanText);
       utterance.lang = 'pt-BR';
 
-      const voices = synth.getVoices();
-      const naturalVoice =
-        voices.find(
+      const selectBestVoice = () => {
+        const voices = synth.getVoices();
+        const naturalFemale = voices.find(
           (v) =>
             v.lang.toLowerCase().replace('_', '-').startsWith('pt') &&
-            (v.name.toLowerCase().includes('natural') ||
-              v.name.toLowerCase().includes('online') ||
-              v.name.toLowerCase().includes('google') ||
+            (v.name.toLowerCase().includes('thalita') ||
               v.name.toLowerCase().includes('francisca') ||
-              v.name.toLowerCase().includes('thalita'))
-        ) ||
-        voices.find((v) => v.lang.toLowerCase().replace('_', '-').startsWith('pt'));
+              v.name.toLowerCase().includes('leticia') ||
+              v.name.toLowerCase().includes('maria') ||
+              v.name.toLowerCase().includes('luciana') ||
+              (v.name.toLowerCase().includes('natural') && !v.name.toLowerCase().includes('antonio') && !v.name.toLowerCase().includes('daniel')) ||
+              (v.name.toLowerCase().includes('online') && !v.name.toLowerCase().includes('antonio') && !v.name.toLowerCase().includes('daniel')) ||
+              v.name.toLowerCase().includes('google português'))
+        );
 
-      if (naturalVoice) {
-        utterance.voice = naturalVoice;
+        const anyPt =
+          naturalFemale ||
+          voices.find((v) => v.lang.toLowerCase().replace('_', '-').startsWith('pt'));
+
+        if (anyPt) {
+          utterance.voice = anyPt;
+        }
+      };
+
+      selectBestVoice();
+      if (!utterance.voice && 'onvoiceschanged' in synth) {
+        synth.onvoiceschanged = () => selectBestVoice();
       }
 
       utterance.pitch = 1.0;
