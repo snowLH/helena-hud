@@ -1,4 +1,4 @@
-// Neural Studio TTS & J.A.R.V.I.S. Hologram Acoustic DSP Engine for H.E.L.E.N.A.
+// Ultra-Natural Studio Voice & Audio Processing Engine for H.E.L.E.N.A.
 
 export interface JarvisVoicePreset {
   id: string;
@@ -13,28 +13,36 @@ export interface JarvisVoicePreset {
 export const JARVIS_VOICE_PRESETS: JarvisVoicePreset[] = [
   {
     id: 'jarvis_francisca',
-    name: 'J.A.R.V.I.S. Feminina (Francisca Neural)',
+    name: 'Helena Natural (Francisca Neural)',
     voiceKey: 'pt-BR-FranciscaNeural',
-    description: 'Voz refinada, aveludada, confiante e elegante — idêntica à postura do assistente de Tony Stark.',
-    rate: '+2%',
-    pitch: '-2Hz',
+    description: 'Voz feminina humana, aveludada, refinada e ultra-natural.',
+    rate: '0%',
+    pitch: '0Hz',
     isJarvisDefault: true
   },
   {
     id: 'friday_thalita',
-    name: 'F.R.I.D.A.Y. Tática (Thalita Neural)',
+    name: 'F.R.I.D.A.Y. Ágil (Thalita Neural)',
     voiceKey: 'pt-BR-ThalitaNeural',
     description: 'Voz jovem, ágil, fluida e de alta precisão tecnológica.',
-    rate: '+3%',
-    pitch: '-1Hz'
+    rate: '+1%',
+    pitch: '0Hz'
+  },
+  {
+    id: 'helena_google',
+    name: 'Helena Estúdio (Google Neural)',
+    voiceKey: 'google_pt_br',
+    description: 'Voz limpa e expressiva em streaming direto de alta definição.',
+    rate: '0%',
+    pitch: '0Hz'
   },
   {
     id: 'protocol_elza',
     name: 'Protocolo Tático (Elza Neural)',
     voiceKey: 'pt-BR-ElzaNeural',
-    description: 'Voz sóbria, analítica, militar e altamente focada em diretrizes.',
-    rate: '+1%',
-    pitch: '-3Hz'
+    description: 'Voz sóbria, analítica, assertiva e profissional.',
+    rate: '0%',
+    pitch: '-1Hz'
   }
 ];
 
@@ -47,7 +55,7 @@ class SpeechController {
 
   // Selected Neural Voice
   public activePresetId: string = 'jarvis_francisca';
-  public holographicEffect: boolean = true;
+  public holographicEffect: boolean = false; // Padrão 100% natural sem metalizado
 
   constructor() {
     try {
@@ -108,8 +116,8 @@ class SpeechController {
     this.setSpeaking(false);
   }
 
-  // J.A.R.V.I.S. Hologram Audio DSP Chain
-  private setupHolographicDsp(audioElement: HTMLAudioElement) {
+  // Pure Studio Mastering DSP (sem metalizado ou eco distorcido)
+  private setupStudioAudioDsp(audioElement: HTMLAudioElement) {
     if (!this.holographicEffect) return;
 
     try {
@@ -125,53 +133,28 @@ class SpeechController {
 
       const source = this.audioCtx.createMediaElementSource(audioElement);
 
-      // 1. Warmth Filter (Low-shelf boost around 220Hz for velvety presence)
       const warmth = this.audioCtx.createBiquadFilter();
       warmth.type = 'lowshelf';
-      warmth.frequency.value = 220;
-      warmth.gain.value = 3.0;
+      warmth.frequency.value = 180;
+      warmth.gain.value = 1.5;
 
-      // 2. Articulation Filter (Peak at 3.4kHz for crisp diction)
       const clarity = this.audioCtx.createBiquadFilter();
       clarity.type = 'peaking';
-      clarity.frequency.value = 3400;
-      clarity.Q.value = 1.2;
-      clarity.gain.value = 2.5;
+      clarity.frequency.value = 3200;
+      clarity.gain.value = 1.8;
 
-      // 3. Holographic Room Ambience (Subtle 18ms comb reflection)
-      const delay = this.audioCtx.createDelay();
-      delay.delayTime.value = 0.018; // 18ms holographic reflection
-
-      const delayFeedback = this.audioCtx.createGain();
-      delayFeedback.gain.value = 0.18;
-
-      const delayMix = this.audioCtx.createGain();
-      delayMix.gain.value = 0.22;
-
-      // 4. Dynamic Compressor for Broadcast Clarity
       const comp = this.audioCtx.createDynamicsCompressor();
-      comp.threshold.value = -22;
-      comp.knee.value = 12;
-      comp.ratio.value = 4;
-      comp.attack.value = 0.003;
-      comp.release.value = 0.15;
+      comp.threshold.value = -18;
+      comp.knee.value = 8;
+      comp.ratio.value = 2.5;
+      comp.attack.value = 0.005;
+      comp.release.value = 0.1;
 
-      // Connect Chain
       source.connect(warmth);
       warmth.connect(clarity);
       clarity.connect(comp);
-
-      // Delay branch
-      clarity.connect(delay);
-      delay.connect(delayFeedback);
-      delayFeedback.connect(delay);
-      delay.connect(delayMix);
-      delayMix.connect(comp);
-
       comp.connect(this.audioCtx.destination);
-    } catch (_) {
-      // Audio element will play through standard direct output if AudioContext already attached
-    }
+    } catch (_) {}
   }
 
   public previewVoice(presetId?: string, text?: string): Promise<void> {
@@ -179,13 +162,13 @@ class SpeechController {
     if (presetId) this.activePresetId = presetId;
     const sampleText =
       text ||
-      'Bom dia, Comandante. Interface neural conectada. Todos os sistemas operacionais calibrados para sua diretriz.';
+      'Olá Comandante. Interface de voz natural calibrada. Todos os sistemas operacionais e diagnósticos estão em prontidão.';
     return this.speak(sampleText).finally(() => {
       this.activePresetId = original;
     });
   }
 
-  // Primary Speech method (Studio Neural with automatic fallback)
+  // Primary Speech method (Studio Neural with automatic streaming fallback)
   public async speak(text: string): Promise<void> {
     if (!text || !this.enabled) return;
 
@@ -200,7 +183,7 @@ class SpeechController {
     const preset = this.getActivePreset();
 
     try {
-      // 1. Call backend Neural Studio TTS (/api/tts)
+      // 1. Call backend Studio Neural TTS (/api/tts)
       const response = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -222,7 +205,7 @@ class SpeechController {
           const audio = new Audio(audioUrl);
           this.currentAudio = audio;
 
-          this.setupHolographicDsp(audio);
+          this.setupStudioAudioDsp(audio);
 
           audio.onended = () => {
             URL.revokeObjectURL(audioUrl);
@@ -246,7 +229,7 @@ class SpeechController {
       console.warn('Neural TTS request failed, using fallback:', err);
     }
 
-    // 2. Fallback to Browser Speech if offline / backend error
+    // 2. Fallback to Browser Speech if completely offline
     return this.fallbackBrowserSpeech(cleanText);
   }
 
@@ -267,20 +250,24 @@ class SpeechController {
       utterance.lang = 'pt-BR';
 
       const voices = synth.getVoices();
-      const naturalVoice = voices.find(
-        (v) =>
-          v.lang.toLowerCase().startsWith('pt') &&
-          (v.name.toLowerCase().includes('natural') ||
-            v.name.toLowerCase().includes('neural') ||
-            v.name.toLowerCase().includes('google'))
-      );
+      const naturalVoice =
+        voices.find(
+          (v) =>
+            v.lang.toLowerCase().replace('_', '-').startsWith('pt') &&
+            (v.name.toLowerCase().includes('natural') ||
+              v.name.toLowerCase().includes('online') ||
+              v.name.toLowerCase().includes('google') ||
+              v.name.toLowerCase().includes('francisca') ||
+              v.name.toLowerCase().includes('thalita'))
+        ) ||
+        voices.find((v) => v.lang.toLowerCase().replace('_', '-').startsWith('pt'));
 
       if (naturalVoice) {
         utterance.voice = naturalVoice;
       }
 
       utterance.pitch = 1.0;
-      utterance.rate = 1.02;
+      utterance.rate = 1.0;
 
       let hasEnded = false;
       const finish = () => {
@@ -295,7 +282,7 @@ class SpeechController {
       utterance.onend = finish;
       utterance.onerror = finish;
 
-      const safetyTimer = setTimeout(finish, Math.max(2500, cleanText.length * 90));
+      const safetyTimer = setTimeout(finish, Math.max(2500, cleanText.length * 80));
       try {
         synth.speak(utterance);
       } catch (_) {

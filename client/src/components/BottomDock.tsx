@@ -9,7 +9,11 @@ import {
   Sparkles,
   Zap,
   Trash2,
-  Layers
+  Layers,
+  Wrench,
+  Power,
+  Globe,
+  Rocket
 } from 'lucide-react';
 import { soundSynth } from '../audio/synth';
 
@@ -39,6 +43,14 @@ export const BottomDock: React.FC<BottomDockProps> = ({
         return <Trash2 className="w-3.5 h-3.5 text-emerald-400" />;
       case 'rede_memoria':
         return <Zap className="w-3.5 h-3.5 text-cyan-400" />;
+      case 'reparo_sistema':
+        return <Wrench className="w-3.5 h-3.5 text-emerald-400" />;
+      case 'startup_manager':
+        return <Power className="w-3.5 h-3.5 text-purple-400" />;
+      case 'pesquisa_web':
+        return <Globe className="w-3.5 h-3.5 text-cyan-400" />;
+      case 'app_launcher':
+        return <Rocket className="w-3.5 h-3.5 text-amber-400" />;
       case 'finalizacao':
         return <Sparkles className="w-3.5 h-3.5 text-cyan-300" />;
       default:

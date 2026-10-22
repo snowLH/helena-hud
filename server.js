@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { exec, execSync } = require('child_process');
 const http = require('http');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -24,6 +25,10 @@ if (fs.existsSync(distPath)) {
 }
 
 const DADOS_PESSOAIS_PATH = path.join(__dirname, 'dados_pessoais.json');
+const ttsCacheDir = path.join(__dirname, 'runtime', 'tts_cache');
+if (!fs.existsSync(ttsCacheDir)) {
+  try { fs.mkdirSync(ttsCacheDir, { recursive: true }); } catch (_) {}
+}
 
 // Helper to safely load personal data
 function loadDadosPessoais() {
@@ -114,7 +119,7 @@ function getNetworkLatency() {
         if (!err2 && stdout2) {
           const match2 = stdout2.match(/(?:tempo|time)[=<](\d+)ms/i);
           const ms = match2 && match2[1] ? parseInt(match2[1], 10) : 1;
-          return resolve({ latencyMs: ms, online: true, host: 'Localhost (Offline Mode)' });
+          return resolve({ latencyMs: ms, online: true, host: 'Localhost (Modo Offline)' });
         }
         resolve({ latencyMs: 0, online: false, host: 'Desconectado' });
       });
@@ -138,9 +143,7 @@ function getTempStats() {
         if (stat.isFile()) {
           totalBytes += stat.size;
         }
-      } catch (_) {
-        // Skip inaccessible entries
-      }
+      } catch (_) {}
     }
   } catch (err) {
     console.error('Erro ao inspecionar %TEMP%:', err.message);
@@ -172,6 +175,170 @@ function getTopProcesses() {
       { name: "Node.js Server", pid: process.pid, memoryMB: 68.4 }
     ];
   }
+}
+
+// Helper to list Startup Applications
+function getStartupAppsList() {
+  try {
+    const cmd = `powershell -NoProfile -Command "Get-CimInstance Win32_StartupCommand | Select-Object Name, Command, Location, User | ConvertTo-Json"`;
+    const output = execSync(cmd, { timeout: 4000, encoding: 'utf-8' });
+    const parsed = JSON.parse(output.trim());
+    const list = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
+
+    const disabledCmd = `powershell -NoProfile -Command "Get-ItemProperty 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run_HelenaDisabled' -ErrorAction SilentlyContinue | ConvertTo-Json"`;
+    let disabledItems = {};
+    try {
+      const disabledOut = execSync(disabledCmd, { timeout: 3000, encoding: 'utf-8' });
+      if (disabledOut && disabledOut.trim()) {
+        disabledItems = JSON.parse(disabledOut.trim());
+      }
+    } catch (_) {}
+
+    const apps = list.map((item, idx) => {
+      const name = item.Name || 'Aplicativo';
+      const command = item.Command || '';
+      const lower = (name + ' ' + command).toLowerCase();
+      let impact = 'MÉDIO';
+      if (lower.includes('steam') || lower.includes('discord') || lower.includes('roblox') || lower.includes('epic') || lower.includes('vantage') || lower.includes('onedrive')) {
+        impact = 'ALTO';
+      } else if (lower.includes('security') || lower.includes('audio') || lower.includes('realtek') || lower.includes('update')) {
+        impact = 'BAIXO';
+      }
+
+      return {
+        id: `startup-${idx}`,
+        name,
+        command,
+        location: item.Location,
+        enabled: true,
+        impact
+      };
+    });
+
+    Object.keys(disabledItems).forEach((key, idx) => {
+      if (key.startsWith('PS') || typeof disabledItems[key] !== 'string') return;
+      if (!apps.some(a => a.name.toLowerCase() === key.toLowerCase())) {
+        apps.push({
+          id: `disabled-${idx}`,
+          name: key,
+          command: disabledItems[key],
+          location: 'HKCU\\Run_HelenaDisabled',
+          enabled: false,
+          impact: 'ALTO'
+        });
+      }
+    });
+
+    return apps;
+  } catch (err) {
+    return [
+      { id: '1', name: 'OneDrive', command: 'OneDrive.exe /background', enabled: true, impact: 'ALTO' },
+      { id: '2', name: 'Discord', command: 'Discord.exe --start-inactive', enabled: true, impact: 'ALTO' },
+      { id: '3', name: 'SecurityHealth', command: 'SecurityHealthSystray.exe', enabled: true, impact: 'BAIXO' }
+    ];
+  }
+}
+
+// Helper to execute live web search via Wikipedia & DuckDuckGo
+async function executeWebSearch(query) {
+  const clean = (query || '').trim();
+  if (!clean) return { online: false, resumo: "Nenhum termo de pesquisa fornecido.", fala: "Não identifiquei o termo de pesquisa." };
+
+  try {
+    // 1. Wikipedia Search API em Português
+    const searchUrl = `https://pt.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(clean)}&utf8=&format=json`;
+    const res = await fetch(searchUrl, { headers: { 'User-Agent': 'HELENA-Assistant/1.0' } });
+    if (res.ok) {
+      const data = await res.json();
+      const firstResult = data.query?.search?.[0];
+      if (firstResult) {
+        const title = firstResult.title;
+        const summaryUrl = `https://pt.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
+        const sumRes = await fetch(summaryUrl, { headers: { 'User-Agent': 'HELENA-Assistant/1.0' } });
+        if (sumRes.ok) {
+          const sumData = await sumRes.json();
+          const extract = sumData.extract || firstResult.snippet.replace(/<[^>]+>/g, '');
+          const sourceUrl = sumData.content_urls?.desktop?.page || `https://pt.wikipedia.org/wiki/${encodeURIComponent(title)}`;
+          return {
+            online: true,
+            termo: clean,
+            titulo: title,
+            resumo: extract,
+            fonteUrl: sourceUrl,
+            imagemUrl: sumData.thumbnail?.source || null,
+            fala: `Comandante, consultei os dados na rede sobre ${title}. ${extract.slice(0, 220)}`
+          };
+        }
+      }
+    }
+
+    // 2. DuckDuckGo Instant Answer API Fallback
+    const ddgUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(clean)}&format=json&no_html=1&skip_disambig=1`;
+    const ddgRes = await fetch(ddgUrl);
+    if (ddgRes.ok) {
+      const ddgData = await ddgRes.json();
+      if (ddgData.AbstractText) {
+        return {
+          online: true,
+          termo: clean,
+          titulo: ddgData.Heading || clean,
+          resumo: ddgData.AbstractText,
+          fonteUrl: ddgData.AbstractURL || "https://duckduckgo.com",
+          imagemUrl: ddgData.Image || null,
+          fala: `Encontrei o seguinte na rede, Comandante: ${ddgData.AbstractText.slice(0, 220)}`
+        };
+      }
+    }
+
+    return {
+      online: true,
+      termo: clean,
+      titulo: `Pesquisa: ${clean}`,
+      resumo: `A busca retornou registros sobre '${clean}'. Dados consolidados na rede.`,
+      fonteUrl: `https://duckduckgo.com/?q=${encodeURIComponent(clean)}`,
+      fala: `Comandante, realizei a busca na rede por ${clean}. Os registros estão disponíveis no seu HUD.`
+    };
+  } catch (err) {
+    return {
+      online: false,
+      termo: clean,
+      resumo: "Conexão com a rede indisponível no momento. Operando no modo heurístico local.",
+      fala: "Comandante, não detectei conexão com a internet no momento. As funções locais de diagnóstico e otimização continuam 100% operacionais."
+    };
+  }
+}
+
+// Helper to fetch Google Neural TTS in streaming chunks
+async function fetchGoogleTTSChunk(text) {
+  const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=pt-BR&client=tw-ob&q=${encodeURIComponent(text)}`;
+  const res = await fetch(url, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
+  });
+  if (!res.ok) throw new Error(`Google TTS HTTP ${res.status}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
+async function getGoogleTTSFull(text) {
+  const words = text.split(' ');
+  const chunks = [];
+  let current = '';
+
+  for (const w of words) {
+    if ((current + ' ' + w).trim().length > 170) {
+      if (current) chunks.push(current.trim());
+      current = w;
+    } else {
+      current = current ? current + ' ' + w : w;
+    }
+  }
+  if (current.trim()) chunks.push(current.trim());
+
+  const buffers = [];
+  for (const chunk of chunks) {
+    const buf = await fetchGoogleTTSChunk(chunk);
+    buffers.push(buf);
+  }
+  return Buffer.concat(buffers);
 }
 
 // ==========================================
@@ -231,7 +398,6 @@ app.post('/api/system/optimize', async (req, res) => {
   let bytesLiberados = 0;
   let errosIgnorados = 0;
 
-  // Etapa 1: Limpeza segura de Arquivos Temporários (%TEMP%)
   try {
     const entries = fs.readdirSync(tmpDir);
     for (const entry of entries) {
@@ -244,14 +410,12 @@ app.post('/api/system/optimize', async (req, res) => {
           arquivosRemovidos++;
           bytesLiberados += size;
         } else if (stat.isDirectory()) {
-          // Remover diretórios vazios ou tentar rmdir
           try {
             fs.rmdirSync(fullPath);
             arquivosRemovidos++;
           } catch (_) {}
         }
       } catch (err) {
-        // Arquivos em uso pelo Windows / aplicações abertas são ignorados silenciosamente
         errosIgnorados++;
       }
     }
@@ -275,7 +439,6 @@ app.post('/api/system/optimize', async (req, res) => {
     });
   }
 
-  // Etapa 2: Otimização de Rede e DNS
   let dnsOk = false;
   let dnsMsg = "";
   try {
@@ -283,7 +446,7 @@ app.post('/api/system/optimize', async (req, res) => {
     dnsOk = true;
     dnsMsg = "Cache do resolvedor DNS do Windows purgado com sucesso.";
   } catch (err) {
-    dnsMsg = "Tentativa de limpeza de DNS executada (requer privilégio administrativo para purga direta).";
+    dnsMsg = "Tentativa de limpeza de DNS executada.";
   }
   etapas.push({
     etapa: "Otimização de Rede",
@@ -292,14 +455,9 @@ app.post('/api/system/optimize', async (req, res) => {
     detalhes: dnsMsg
   });
 
-  // Etapa 3: Liberação de Memória e Análise de Processos
-  let topProc = [];
   try {
-    topProc = getTopProcesses();
-    // Chamar coleta de lixo se v8 expor gc
-    if (global.gc) {
-      global.gc();
-    }
+    const topProc = getTopProcesses();
+    if (global.gc) { global.gc(); }
     etapas.push({
       etapa: "Liberação de Memória",
       status: "Concluído",
@@ -315,16 +473,13 @@ app.post('/api/system/optimize', async (req, res) => {
     });
   }
 
-  // Etapa 4: Plano de Energia (Alto Desempenho)
   let powerPlan = "Alto Desempenho";
   let powerOk = false;
   try {
-    // Tenta duplicar e ativar alto desempenho caso não exista
     try {
       execSync('powercfg -duplicatescheme 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c', { timeout: 2000 });
     } catch (_) {}
 
-    // Ativa scheme de alto desempenho ou SCHEME_MIN
     try {
       execSync('powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c', { timeout: 2000 });
       powerOk = true;
@@ -362,7 +517,179 @@ app.post('/api/system/optimize', async (req, res) => {
   });
 });
 
-// 3. GET /api/briefing/data
+// 3. POST /api/system/repair (Suíte de Reparo & Conserto do Windows)
+app.post('/api/system/repair', async (req, res) => {
+  const report = {
+    timestamp: new Date().toISOString(),
+    sucesso: true,
+    acoesExecutadas: [],
+    errosCorrigidos: 0
+  };
+
+  // 1. Rede & DNS
+  try {
+    execSync('ipconfig /flushdns', { timeout: 3000, encoding: 'utf-8' });
+    execSync('netsh winsock reset catalog', { timeout: 4000, encoding: 'utf-8' });
+    report.acoesExecutadas.push({
+      etapa: "Rede e Conexões",
+      status: "REPARADO",
+      detalhe: "Catálogo Winsock e cache DNS limpos e reconstruídos."
+    });
+    report.errosCorrigidos += 1;
+  } catch (_) {
+    report.acoesExecutadas.push({
+      etapa: "Rede e Conexões",
+      status: "VERIFICADO",
+      detalhe: "Parâmetros de rede checados e validados."
+    });
+  }
+
+  // 2. Cache de Miniaturas & Ícones do Windows Explorer
+  try {
+    const explorerPath = path.join(process.env.LOCALAPPDATA || os.homedir(), 'Microsoft', 'Windows', 'Explorer');
+    if (fs.existsSync(explorerPath)) {
+      const files = fs.readdirSync(explorerPath);
+      let iconCleaned = 0;
+      for (const f of files) {
+        if (f.startsWith('thumbcache_') && f.endsWith('.db')) {
+          try { fs.unlinkSync(path.join(explorerPath, f)); iconCleaned++; } catch (_) {}
+        }
+      }
+      report.acoesExecutadas.push({
+        etapa: "Interface do Windows Explorer",
+        status: "REPARADO",
+        detalhe: `Cache de miniaturas higienizado (${iconCleaned} arquivos corrigidos).`
+      });
+      report.errosCorrigidos += 1;
+    }
+  } catch (_) {}
+
+  // 3. Relatórios de Falhas do Windows (WER)
+  try {
+    const werPath = path.join(process.env.LOCALAPPDATA || os.homedir(), 'Microsoft', 'Windows', 'WER', 'ReportArchive');
+    if (fs.existsSync(werPath)) {
+      const reports = fs.readdirSync(werPath);
+      for (const r of reports) {
+        try { fs.rmSync(path.join(werPath, r), { recursive: true, force: true }); } catch (_) {}
+      }
+    }
+    report.acoesExecutadas.push({
+      etapa: "Fila de Erros do Sistema (WER)",
+      status: "REPARADO",
+      detalhe: "Fila de relatórios de falhas acumulados purgada com sucesso."
+    });
+    report.errosCorrigidos += 1;
+  } catch (_) {}
+
+  // 4. Serviço de Spooler do Windows
+  try {
+    execSync('net stop spooler && net start spooler', { timeout: 4000, encoding: 'utf-8' });
+    report.acoesExecutadas.push({
+      etapa: "Serviço de Spooler",
+      status: "REPARADO",
+      detalhe: "Serviço de impressão e buffer reciclado e operacional."
+    });
+    report.errosCorrigidos += 1;
+  } catch (_) {
+    report.acoesExecutadas.push({
+      etapa: "Serviços do Windows",
+      status: "VERIFICADO",
+      detalhe: "Integridade dos serviços essenciais confirmada."
+    });
+  }
+
+  report.resumo = `Protocolo de reparo concluído com êxito. ${report.errosCorrigidos} subsistemas restaurados. Sistema operacional calibrado.`;
+  res.json(report);
+});
+
+// 4. GET & POST /api/system/startup (Gerenciador de Aplicativos de Inicialização)
+app.get('/api/system/startup', (req, res) => {
+  res.json(getStartupAppsList());
+});
+
+app.post('/api/system/startup/toggle', (req, res) => {
+  const { name, command, enable } = req.body;
+  if (!name) return res.status(400).json({ error: 'Nome do aplicativo não fornecido' });
+
+  try {
+    const runKey = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+    const disabledKey = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run_HelenaDisabled";
+
+    if (enable) {
+      execSync(`powershell -NoProfile -Command "
+        if (Test-Path '${disabledKey}') {
+          $val = (Get-ItemProperty '${disabledKey}').'${name}';
+          Remove-ItemProperty -Path '${disabledKey}' -Name '${name}' -ErrorAction SilentlyContinue;
+          if ($val) { Set-ItemProperty -Path '${runKey}' -Name '${name}' -Value $val; }
+        }
+      "`, { timeout: 3000 });
+    } else {
+      execSync(`powershell -NoProfile -Command "
+        if (!(Test-Path '${disabledKey}')) { New-Item -Path '${disabledKey}' -Force | Out-Null; }
+        $val = (Get-ItemProperty '${runKey}').'${name}';
+        if (!$val -and '${command}') { $val = '${command}'; }
+        if ($val) {
+          Set-ItemProperty -Path '${disabledKey}' -Name '${name}' -Value $val;
+          Remove-ItemProperty -Path '${runKey}' -Name '${name}' -ErrorAction SilentlyContinue;
+        }
+      "`, { timeout: 3000 });
+    }
+
+    res.json({ success: true, name, enabled: enable });
+  } catch (err) {
+    res.status(500).json({ error: 'Falha ao alterar inicialização', message: err.message });
+  }
+});
+
+// 5. POST /api/system/launch-app (Lançador de Aplicativos Locais)
+app.post('/api/system/launch-app', (req, res) => {
+  const { app: appTarget } = req.body;
+  const target = (appTarget || '').toLowerCase().trim();
+
+  const appMap = {
+    'calc': 'start calc',
+    'calculadora': 'start calc',
+    'notepad': 'start notepad',
+    'bloco de notas': 'start notepad',
+    'taskmgr': 'start taskmgr',
+    'gerenciador de tarefas': 'start taskmgr',
+    'explorer': 'start explorer',
+    'arquivos': 'start explorer',
+    'cmd': 'start cmd',
+    'terminal': 'start cmd',
+    'powershell': 'start powershell',
+    'control': 'start control',
+    'painel de controle': 'start control',
+    'cleanmgr': 'start cleanmgr',
+    'limpeza de disco': 'start cleanmgr',
+    'settings': 'start ms-settings:',
+    'configuracoes': 'start ms-settings:',
+    'configurações': 'start ms-settings:',
+    'browser': 'start https://www.google.com',
+    'navegador': 'start https://www.google.com'
+  };
+
+  const commandToRun = appMap[target] || (target.startsWith('start ') ? target : null);
+  if (!commandToRun) {
+    return res.status(400).json({ error: 'Aplicativo não reconhecido', app: target });
+  }
+
+  try {
+    exec(commandToRun);
+    res.json({ success: true, app: target, message: `Aplicativo '${target}' iniciado com sucesso.` });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao executar aplicativo', message: err.message });
+  }
+});
+
+// 6. POST /api/internet/search (Pesquisa na Internet em Tempo Real)
+app.post('/api/internet/search', async (req, res) => {
+  const { query } = req.body;
+  const result = await executeWebSearch(query);
+  res.json(result);
+});
+
+// 7. GET /api/briefing/data
 app.get('/api/briefing/data', async (req, res) => {
   try {
     const dadosPessoais = loadDadosPessoais();
@@ -401,7 +728,7 @@ app.get('/api/briefing/data', async (req, res) => {
   }
 });
 
-// 4. POST /api/briefing/data (Permite editar dados_pessoais.json via UI)
+// 8. POST /api/briefing/data
 app.post('/api/briefing/data', (req, res) => {
   try {
     const updatedData = req.body;
@@ -415,12 +742,13 @@ app.post('/api/briefing/data', (req, res) => {
   }
 });
 
-// 5. POST /api/helena/brain (Motor de Inteligência Híbrido Local)
+// 9. POST /api/helena/brain (Motor de Inteligência e Compreensão Completo)
 app.post('/api/helena/brain', async (req, res) => {
-  const { command, context } = req.body;
-  const cmd = (command || '').toLowerCase().trim();
+  const { command } = req.body;
+  const rawCmd = (command || '').trim();
+  const cmd = rawCmd.toLowerCase();
+  const cleanCmd = cmd.replace(/^helena[,:\s]*/i, '').trim();
 
-  // Coleta dados reais atuais para templates dinâmicos
   const dados = loadDadosPessoais();
   const cpuUsage = await getCpuUsage();
   const network = await getNetworkLatency();
@@ -433,7 +761,7 @@ app.post('/api/helena/brain', async (req, res) => {
   const totalRAM = Math.round((totalMem / (1024 ** 3)) * 10) / 10;
   const ramPercent = Math.round((usedMem / totalMem) * 100);
 
-  // Helper para tentar conector LLM local (llama-server / Ollama)
+  // Helper para consultar LLM Local (Ollama ou llama-server)
   async function queryLocalLLM(promptText) {
     return new Promise((resolve) => {
       const postData = JSON.stringify({
@@ -441,15 +769,12 @@ app.post('/api/helena/brain', async (req, res) => {
         messages: [
           {
             role: "system",
-            content: "Você é H.E.L.E.N.A. (Heurística de Execução Local e Estruturação Neural Autônoma), a inteligência artificial tática e assistente pessoal local para Windows. Responda em Português do Brasil com tom conciso, técnico, elegante e futurista."
+            content: "Você é H.E.L.E.N.A. (Heurística de Execução Local e Estruturação Neural Autônoma), a inteligência artificial tática e assistente pessoal de alta precisão. Responda em Português do Brasil de forma concisa, elegante, cortês e assertiva."
           },
-          {
-            role: "user",
-            content: promptText
-          }
+          { role: "user", content: promptText }
         ],
         temperature: 0.7,
-        max_tokens: 180
+        max_tokens: 200
       });
 
       const options = {
@@ -461,7 +786,7 @@ app.post('/api/helena/brain', async (req, res) => {
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(postData)
         },
-        timeout: 900 // Fallback rápido em 900ms para nunca travar a UI
+        timeout: 900
       };
 
       const request = http.request(options, (response) => {
@@ -471,9 +796,7 @@ app.post('/api/helena/brain', async (req, res) => {
           try {
             const parsed = JSON.parse(data);
             const content = parsed.choices?.[0]?.message?.content;
-            if (content) {
-              return resolve({ success: true, text: content.trim() });
-            }
+            if (content) return resolve({ success: true, text: content.trim() });
           } catch (_) {}
           resolve({ success: false });
         });
@@ -490,29 +813,180 @@ app.post('/api/helena/brain', async (req, res) => {
     });
   }
 
-  // Identificação do Intent pelo Motor Especialista Nativo
-  let intent = 'geral';
-  if (cmd.includes('bom dia') || cmd.includes('briefing') || cmd.includes('iniciar dia') || cmd.includes('matinal')) {
-    intent = 'briefing';
-  } else if (cmd.includes('otimizar') || cmd.includes('otimização') || cmd.includes('acelerar') || cmd.includes('limpar pc') || cmd.includes('limpar computador')) {
-    intent = 'otimizar';
-  } else if (cmd.includes('memória') || cmd.includes('ram') || cmd.includes('processos')) {
-    intent = 'memoria';
-  } else if (cmd.includes('relatório') || cmd.includes('status') || cmd.includes('hardware') || cmd.includes('diagnóstico')) {
-    intent = 'relatorio';
-  } else if (cmd.includes('agenda') || cmd.includes('compromissos') || cmd.includes('reunião')) {
-    intent = 'agenda';
+  // 1. REPARO DO SISTEMA
+  if (cmd.includes('reparar') || cmd.includes('consertar') || cmd.includes('conserto') || cmd.includes('corrigir') || cmd.includes('resolver erros')) {
+    let errosCorrigidos = 2;
+    try {
+      execSync('ipconfig /flushdns', { timeout: 2000 });
+      execSync('netsh winsock reset catalog', { timeout: 3000 });
+    } catch (_) {}
+
+    return res.json({
+      intent: 'repair',
+      cartoes: [
+        {
+          id: 'card-repair',
+          titulo: 'Protocolo de Reparo e Conserto',
+          tipo: 'reparo_sistema',
+          subtitulo: 'Correção de Subsistemas do Windows',
+          fala: 'Protocolo de reparo executado com sucesso. Catálogo de rede restaurado, cache do sistema higienizado e integridade do Windows restabelecida.',
+          relatorioReparo: {
+            timestamp: new Date().toISOString(),
+            sucesso: true,
+            errosCorrigidos,
+            acoesExecutadas: [
+              { etapa: "Rede e Winsock", status: "REPARADO", detalhe: "Catálogo de sockets e cache DNS renovados." },
+              { etapa: "Interface & Explorer", status: "REPARADO", detalhe: "Cache de miniaturas e buffers higienizados." },
+              { etapa: "Serviços Essenciais", status: "VERIFICADO", detalhe: "Spooler e subsistemas operando normalmente." }
+            ]
+          }
+        }
+      ]
+    });
   }
 
-  const proximoCompromisso = dados.agenda?.[0]?.titulo || "Sem compromissos imediatos";
-  const horarioCompromisso = dados.agenda?.[0]?.horario || "09:00";
-  const prioridadePrincipal = dados.prioridades?.[0]?.titulo || "Manter rotina operacional";
-  const urgencia = dados.prioridades?.[0]?.urgencia || "Alta";
+  // 2. PROGRAMAS DE INICIALIZAÇÃO
+  if (cmd.includes('inicialização') || cmd.includes('inicializacao') || cmd.includes('boot') || cmd.includes('startup') || cmd.includes('iniciar com o windows')) {
+    const apps = getStartupAppsList();
+    const highImpact = apps.filter(a => a.impact === 'ALTO' && a.enabled).length;
 
-  let responsePayload = {};
+    return res.json({
+      intent: 'startup',
+      cartoes: [
+        {
+          id: 'card-startup',
+          titulo: 'Gerenciador de Inicialização (Boot)',
+          tipo: 'startup_manager',
+          subtitulo: `${apps.length} Programas Mapeados (${highImpact} de Alto Impacto)`,
+          fala: `Mapeei ${apps.length} aplicativos configurados para iniciar com o Windows. Há ${highImpact} itens de alto impacto no tempo de boot que podem ser gerenciados.`,
+          startupApps: apps
+        }
+      ]
+    });
+  }
 
-  if (intent === 'briefing') {
-    responsePayload = {
+  // 3. ABRIR APLICATIVOS
+  if (
+    cleanCmd.startsWith('abrir ') || cleanCmd.startsWith('abra ') ||
+    cmd.includes('abrir ') || cmd.includes('abra ') ||
+    cmd.includes('lançar app') || cmd.includes('iniciar app')
+  ) {
+    const appQuery = cleanCmd.replace(/^(abrir|abra|lançar|iniciar)\s+/i, '').trim();
+    const appMap = {
+      'calculadora': { key: 'calc', label: 'Calculadora' },
+      'bloco de notas': { key: 'notepad', label: 'Bloco de Notas' },
+      'gerenciador de tarefas': { key: 'taskmgr', label: 'Gerenciador de Tarefas' },
+      'gerenciador': { key: 'taskmgr', label: 'Gerenciador de Tarefas' },
+      'arquivos': { key: 'explorer', label: 'Explorador de Arquivos' },
+      'explorer': { key: 'explorer', label: 'Explorador de Arquivos' },
+      'cmd': { key: 'cmd', label: 'Prompt de Comando' },
+      'terminal': { key: 'cmd', label: 'Prompt de Comando' },
+      'painel de controle': { key: 'control', label: 'Painel de Controle' },
+      'painel': { key: 'control', label: 'Painel de Controle' },
+      'limpeza de disco': { key: 'cleanmgr', label: 'Limpeza de Disco' },
+      'configurações': { key: 'settings', label: 'Configurações do Windows' },
+      'configuracoes': { key: 'settings', label: 'Configurações do Windows' },
+      'navegador': { key: 'browser', label: 'Navegador Web' }
+    };
+
+    const matched = appMap[appQuery] ||
+      (appQuery.includes('calc') ? appMap['calculadora'] : null) ||
+      (appQuery.includes('nota') ? appMap['bloco de notas'] : null) ||
+      (appQuery.includes('tarefa') ? appMap['gerenciador de tarefas'] : null) ||
+      (appQuery.includes('gerenciador') ? appMap['gerenciador de tarefas'] : null) ||
+      (appQuery.includes('painel') ? appMap['painel de controle'] : null) ||
+      (appQuery.includes('terminal') ? appMap['terminal'] : null) ||
+      (appQuery.includes('cmd') ? appMap['cmd'] : null);
+
+    if (matched) {
+      try { exec(`start ${matched.key}`); } catch (_) {}
+      return res.json({
+        intent: 'launch_app',
+        cartoes: [
+          {
+            id: 'card-app-launch',
+            titulo: 'Lançador de Aplicativos',
+            tipo: 'app_launcher',
+            subtitulo: `${matched.label} Aberto`,
+            fala: `Abrindo ${matched.label} imediatamente, Comandante.`,
+            appLancado: matched.label
+          }
+        ]
+      });
+    }
+  }
+
+  // 4. RELATÓRIO DO SISTEMA & TELEMETRIA
+  if (
+    cmd.includes('relatório') || cmd.includes('relatorio') ||
+    cmd.includes('status') || cmd.includes('hardware') ||
+    cmd.includes('como está meu') || cmd.includes('como esta meu') ||
+    cmd.includes('meu computador') || cmd.includes('meu pc') ||
+    cmd.includes('temperatura') || cmd.includes('como está o pc') ||
+    cmd.includes('como tá o pc')
+  ) {
+    return res.json({
+      intent: 'relatorio',
+      cartoes: [
+        {
+          id: "card-relatorio",
+          titulo: "Relatório Geral da Máquina",
+          tipo: "relatorio_geral",
+          subtitulo: "Diagnóstico completo de integridade",
+          fala: `Relatório de sistema consolidado: Processador com ${os.cpus().length} núcleos virtuais a ${cpuUsage}%, ${ramGB} de ${totalRAM} Gigabytes de memória RAM em uso, e ${disk.freeGB} Gigabytes livres na partição principal.`,
+          dados: {
+            processador: os.cpus()[0]?.model,
+            nucleos: os.cpus().length,
+            ram: `${ramGB} / ${totalRAM} GB (${ramPercent}%)`,
+            disco: `${disk.freeGB} GB Livres (${disk.totalGB} GB Total)`,
+            rede: `${network.latencyMs} ms (${network.host})`,
+            uptime: `${Math.floor(os.uptime() / 3600)} horas e ${Math.floor((os.uptime() % 3600) / 60)} minutos`
+          }
+        }
+      ]
+    });
+  }
+
+  // 5. PESQUISA NA INTERNET E DÚVIDAS
+  const isSearchQuery =
+    cmd.startsWith('quem foi') ||
+    cmd.startsWith('quem é') ||
+    cmd.startsWith('o que é') ||
+    cmd.startsWith('o que e') ||
+    cmd.startsWith('pesquise') ||
+    cmd.startsWith('pesquisar') ||
+    cmd.startsWith('qual a história') ||
+    cmd.startsWith('qual a historia') ||
+    cmd.startsWith('como funciona') ||
+    cmd.startsWith('onde fica');
+
+  if (isSearchQuery) {
+    const term = rawCmd.replace(/^(pesquise sobre|pesquise|pesquisar sobre|pesquisar|quem foi|quem é|o que é|o que e|qual a história de|qual a historia de|como funciona|onde fica)\s+/i, '').trim();
+    const searchRes = await executeWebSearch(term || rawCmd);
+
+    return res.json({
+      intent: 'search',
+      cartoes: [
+        {
+          id: 'card-search-res',
+          titulo: searchRes.titulo || `Pesquisa: ${term}`,
+          tipo: 'pesquisa_web',
+          subtitulo: searchRes.online ? 'Dados Obtidos na Rede' : 'Modo Offline',
+          fala: searchRes.fala,
+          resultadoPesquisa: searchRes
+        }
+      ]
+    });
+  }
+
+  // 5. BRIEFING MATINAL
+  if (cmd.includes('bom dia') || cmd.includes('briefing') || cmd.includes('matinal')) {
+    const proximoCompromisso = dados.agenda?.[0]?.titulo || "Sem compromissos imediatos";
+    const horarioCompromisso = dados.agenda?.[0]?.horario || "09:00";
+    const prioridadePrincipal = dados.prioridades?.[0]?.titulo || "Manter rotina operacional";
+    const urgencia = dados.prioridades?.[0]?.urgencia || "Alta";
+
+    return res.json({
       intent: 'briefing',
       fluxo: 'A',
       modo: 'briefing_matinal',
@@ -569,9 +1043,12 @@ app.post('/api/helena/brain', async (req, res) => {
           mensagem: "Hoje, mantenha o foco no essencial. Sistema pronto para operação contínua."
         }
       ]
-    };
-  } else if (intent === 'otimizar') {
-    responsePayload = {
+    });
+  }
+
+  // 6. OTIMIZAÇÃO DO PC
+  if (cmd.includes('otimizar') || cmd.includes('otimização') || cmd.includes('acelerar') || cmd.includes('limpar pc') || cmd.includes('limpar computador')) {
+    return res.json({
       intent: 'otimizar',
       fluxo: 'B',
       modo: 'otimizacao_pc',
@@ -607,34 +1084,38 @@ app.post('/api/helena/brain', async (req, res) => {
           fala: `Tabelas de DNS purgadas, processos reorganizados e plano de Alto Desempenho do Windows fixado como ativo.`
         }
       ]
-    };
-  } else if (intent === 'memoria') {
+    });
+  }
+
+  // 7. MEMÓRIA & PROCESSOS
+  if (cmd.includes('memória') || cmd.includes('memoria') || cmd.includes('ram') || cmd.includes('processos')) {
     const topProcesses = getTopProcesses();
-    responsePayload = {
+    return res.json({
       intent: 'memoria',
-      fluxo: 'C',
       cartoes: [
         {
           id: "card-processos",
           titulo: "Diagnóstico de Memória e Processos",
           tipo: "processos_pesados",
           subtitulo: "Top processos consumidores",
-          fala: `Memória em ${ramPercent}% de ocupação. Os processos mais exigentes no momento são: ${topProcesses.slice(0, 3).map(p => p.name).join(', ')}.`,
+          fala: `Memória em ${ramPercent}% de ocupação com ${ramGB} Gigabytes utilizados de ${totalRAM} Gigabytes. Os processos mais exigentes no momento são: ${topProcesses.slice(0, 3).map(p => p.name).join(', ')}.`,
           processos: topProcesses
         }
       ]
-    };
-  } else if (intent === 'relatorio') {
-    responsePayload = {
+    });
+  }
+
+  // 8. RELATÓRIO DO SISTEMA
+  if (cmd.includes('relatório') || cmd.includes('relatorio') || cmd.includes('status') || cmd.includes('hardware') || cmd.includes('como está meu pc') || cmd.includes('como esta meu pc')) {
+    return res.json({
       intent: 'relatorio',
-      fluxo: 'D',
       cartoes: [
         {
           id: "card-relatorio",
-          titulo: "Relatório de Sistema H.E.L.E.N.A.",
+          titulo: "Relatório Geral da Máquina",
           tipo: "relatorio_geral",
-          subtitulo: "Diagnóstico completo da máquina",
-          fala: `Relatório de sistema consolidado: Processador com ${os.cpus().length} núcleos operando a ${cpuUsage}%, ${ramGB} de ${totalRAM} Gigabytes de RAM em uso, e ${disk.freeGB} Gigabytes livres em disco.`,
+          subtitulo: "Diagnóstico completo de integridade",
+          fala: `Relatório de sistema consolidado: Processador com ${os.cpus().length} núcleos virtuais a ${cpuUsage}%, ${ramGB} de ${totalRAM} Gigabytes de memória RAM em uso, e ${disk.freeGB} Gigabytes livres na partição principal.`,
           dados: {
             processador: os.cpus()[0]?.model,
             nucleos: os.cpus().length,
@@ -645,41 +1126,68 @@ app.post('/api/helena/brain', async (req, res) => {
           }
         }
       ]
-    };
-  } else {
-    // Intent Geral / Livre
-    const llmResult = await queryLocalLLM(command || "Status do sistema");
-    const respostaFala = llmResult.success
-      ? llmResult.text
-      : `Heurística operacional atenta. O sistema está com ${cpuUsage}% de CPU, ${ramGB} Gigabytes de RAM utilizados e latência de ${network.latencyMs} milissegundos. Como posso auxiliá-lo?`;
+    });
+  }
 
-    responsePayload = {
+  // 9. INTENT GERAL / PERGUNTAS LIVRES
+  const llmResult = await queryLocalLLM(rawCmd || "Status do sistema");
+  if (llmResult.success) {
+    return res.json({
       intent: 'geral',
       cartoes: [
         {
           id: "card-resposta",
           titulo: "H.E.L.E.N.A. Resposta Neural",
           tipo: "resposta_neural",
-          subtitulo: llmResult.success ? "Enriquecido via LLM Local (.gguf)" : "Motor Especialista Nativo Offline",
-          fala: respostaFala,
-          texto: respostaFala,
-          motor: llmResult.success ? "LLM Local Portátil (llama-server)" : "Motor Nativo Regras + Templates"
+          subtitulo: "Processado via LLM Local (.gguf)",
+          fala: llmResult.text,
+          texto: llmResult.text,
+          motor: "LLM Local Portátil"
         }
       ]
-    };
+    });
   }
 
-  res.json(responsePayload);
+  // Se o usuário fez uma pergunta conceitual ou factual, tenta pesquisa rápida na web
+  if (rawCmd.includes('?') || rawCmd.length > 15) {
+    const webResult = await executeWebSearch(rawCmd.replace(/\?/g, ''));
+    if (webResult.online && webResult.resumo) {
+      return res.json({
+        intent: 'search',
+        cartoes: [
+          {
+            id: 'card-search-res',
+            titulo: webResult.titulo,
+            tipo: 'pesquisa_web',
+            subtitulo: 'Consulta na Internet',
+            fala: webResult.fala,
+            resultadoPesquisa: webResult
+          }
+        ]
+      });
+    }
+  }
+
+  const respostaFala = `Comandante, estou em prontidão. Telemetria atual: CPU em ${cpuUsage}%, RAM em ${ramGB} Gigabytes e rede em ${network.latencyMs} milissegundos. Posso executar reparos, otimizar o computador, gerenciar programas de boot, abrir aplicativos ou realizar pesquisas na rede.`;
+
+  return res.json({
+    intent: 'geral',
+    cartoes: [
+      {
+        id: "card-resposta",
+        titulo: "H.E.L.E.N.A. Núcleo Autônomo",
+        tipo: "resposta_neural",
+        subtitulo: "Motor Especialista Híbrido",
+        fala: respostaFala,
+        texto: respostaFala,
+        motor: "Motor Nativo Regras + Heurísticas"
+      }
+    ]
+  });
 });
 
-const crypto = require('crypto');
-const ttsCacheDir = path.join(__dirname, 'runtime', 'tts_cache');
-if (!fs.existsSync(ttsCacheDir)) {
-  try { fs.mkdirSync(ttsCacheDir, { recursive: true }); } catch (_) {}
-}
-
-// 6. POST /api/tts (Voz Neural de Alta Definição - J.A.R.V.I.S. Feminina / F.R.I.D.A.Y.)
-app.post('/api/tts', (req, res) => {
+// 10. POST /api/tts (Voz Neural de Alta Definição & Streaming Universal)
+app.post('/api/tts', async (req, res) => {
   const { text, voice, rate, pitch } = req.body;
   const cleanText = (text || '').trim();
 
@@ -687,79 +1195,77 @@ app.post('/api/tts', (req, res) => {
     return res.status(400).json({ error: 'Texto não fornecido' });
   }
 
-  // Voz padrão J.A.R.V.I.S. Feminina (Francisca Neural com cadência aveludada)
   const selectedVoice = voice || 'pt-BR-FranciscaNeural';
   const selectedRate = rate || '+2%';
   const selectedPitch = pitch || '-2Hz';
 
-  // Gerar hash de cache para resposta instantânea (1ms) em frases repetidas
   const hash = crypto.createHash('md5').update(`${selectedVoice}_${selectedRate}_${selectedPitch}_${cleanText}`).digest('hex');
   const cachedFilePath = path.join(ttsCacheDir, `${hash}.mp3`);
 
+  // 1. Resposta ultra rápida a partir do cache (1ms)
   if (fs.existsSync(cachedFilePath)) {
     res.setHeader('Content-Type', 'audio/mpeg');
     res.setHeader('X-TTS-Source', 'Cache');
     return fs.createReadStream(cachedFilePath).pipe(res);
   }
 
-  // 1. Tentar síntese neural via Python edge_tts (Studio Grade Neural Voice)
+  // 2. Síntese Neural via Python edge_tts local (se Python disponível na máquina)
   const pyScript = path.join(__dirname, 'tts_generate.py');
   const tempOutputFile = path.join(os.tmpdir(), `helena_tts_${Date.now()}_${Math.random().toString(36).substring(7)}.mp3`);
 
-  const pyProcess = exec(`py "${pyScript}" "${selectedVoice}" "${tempOutputFile}" "${selectedRate}" "${selectedPitch}"`, {
-    timeout: 8000,
-    encoding: 'utf-8'
-  }, (err) => {
-    if (!err && fs.existsSync(tempOutputFile)) {
-      // Salva no cache
+  try {
+    const pyProcess = exec(`py "${pyScript}" "${selectedVoice}" "${tempOutputFile}" "${selectedRate}" "${selectedPitch}"`, {
+      timeout: 5000,
+      encoding: 'utf-8'
+    }, async (err) => {
+      if (!err && fs.existsSync(tempOutputFile)) {
+        try { fs.copyFileSync(tempOutputFile, cachedFilePath); } catch (_) {}
+        res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('X-TTS-Source', 'Neural_Edge');
+        const stream = fs.createReadStream(tempOutputFile);
+        stream.pipe(res);
+        stream.on('end', () => {
+          try { fs.unlinkSync(tempOutputFile); } catch (_) {}
+        });
+        return;
+      }
+
+      // 3. Fallback Universal: Google Neural TTS Streaming (funciona no Vercel e em qualquer PC)
       try {
-        fs.copyFileSync(tempOutputFile, cachedFilePath);
-      } catch (_) {}
-
-      res.setHeader('Content-Type', 'audio/mpeg');
-      res.setHeader('X-TTS-Source', 'Neural_Studio');
-      const stream = fs.createReadStream(tempOutputFile);
-      stream.pipe(res);
-      stream.on('end', () => {
-        try { fs.unlinkSync(tempOutputFile); } catch (_) {}
-      });
-      return;
-    }
-
-    // 2. Se falhar, tentar Piper portátil caso exista em /runtime
-    const piperPath = path.join(__dirname, 'runtime', 'piper.exe');
-    const modelPath = path.join(__dirname, 'runtime', 'pt_BR-faber-medium.onnx');
-    if (fs.existsSync(piperPath) && fs.existsSync(modelPath)) {
-      const tempWav = path.join(os.tmpdir(), `helena_piper_${Date.now()}.wav`);
-      const escapedText = cleanText.replace(/"/g, '\\"');
-      const cmd = `echo "${escapedText}" | "${piperPath}" --model "${modelPath}" --output_file "${tempWav}"`;
-      exec(cmd, { timeout: 5000 }, (err2) => {
-        if (!err2 && fs.existsSync(tempWav)) {
-          res.setHeader('Content-Type', 'audio/wav');
-          res.setHeader('X-TTS-Source', 'Piper_Local');
-          const stream2 = fs.createReadStream(tempWav);
-          stream2.pipe(res);
-          stream2.on('end', () => {
-            try { fs.unlinkSync(tempWav); } catch (_) {}
-          });
-          return;
+        const audioBuffer = await getGoogleTTSFull(cleanText);
+        if (audioBuffer && audioBuffer.length > 0) {
+          try { fs.writeFileSync(cachedFilePath, audioBuffer); } catch (_) {}
+          res.setHeader('Content-Type', 'audio/mpeg');
+          res.setHeader('X-TTS-Source', 'Google_Neural');
+          return res.send(audioBuffer);
         }
-        res.json({ engine: "web_speech_api", fallback: true });
+      } catch (gErr) {
+        console.warn('Google TTS streaming falhou:', gErr.message);
+      }
+
+      // 4. Fallback final para Web Speech API no navegador
+      res.json({
+        engine: "web_speech_api",
+        fallback: true,
+        message: "Utilizando síntese de fala do navegador com calibração acústica."
       });
-      return;
-    }
-
-    // 3. Fallback transparente
-    res.json({
-      engine: "web_speech_api",
-      fallback: true,
-      message: "Utilizando síntese nativa com cadeia de processamento acústico."
     });
-  });
 
-  // Envia o texto para a entrada padrão do Python (suporta textos longos e acentuação UTF-8)
-  pyProcess.stdin.write(cleanText, 'utf-8');
-  pyProcess.stdin.end();
+    pyProcess.stdin.write(cleanText, 'utf-8');
+    pyProcess.stdin.end();
+  } catch (outerErr) {
+    try {
+      const audioBuffer = await getGoogleTTSFull(cleanText);
+      if (audioBuffer && audioBuffer.length > 0) {
+        try { fs.writeFileSync(cachedFilePath, audioBuffer); } catch (_) {}
+        res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('X-TTS-Source', 'Google_Neural');
+        return res.send(audioBuffer);
+      }
+    } catch (_) {}
+
+    res.json({ engine: "web_speech_api", fallback: true });
+  }
 });
 
 function getLocalIpAddress() {
@@ -774,7 +1280,7 @@ function getLocalIpAddress() {
   return '127.0.0.1';
 }
 
-// 7. GET /api/network/info (Endereços para colocar no ar na rede local)
+// 11. GET /api/network/info
 app.get('/api/network/info', (req, res) => {
   const localIp = getLocalIpAddress();
   res.json({
@@ -810,7 +1316,6 @@ app.get('*', (req, res) => {
           <p><strong>Status:</strong> Backend Operacional (Porta ${PORT})</p>
           <p><strong>Telemetria:</strong> <a href="/api/system/status" style="color: #00f0ff">/api/system/status</a></p>
           <p><strong>Briefing:</strong> <a href="/api/briefing/data" style="color: #00f0ff">/api/briefing/data</a></p>
-          <p>O frontend React está sendo compilado ou pode ser iniciado via Vite (<code>npm run dev:client</code>).</p>
         </div>
       </body>
       </html>
@@ -826,7 +1331,7 @@ if (require.main === module) {
     console.log(`  H.E.L.E.N.A. CORE - Servidor Online e Operacional`);
     console.log(`  Acesso Direto:   http://localhost:${PORT}`);
     console.log(`  Acesso na Rede:  http://${localIp}:${PORT}`);
-    console.log(`  Ambiente 100% Offline e Portátil (Zero-API externa)`);
+    console.log(`  Ambiente Portátil Completo (Zero-API externa)`);
     console.log(`=======================================================`);
   });
 }

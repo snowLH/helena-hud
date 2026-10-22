@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { HelenaState } from '../types';
-import { Volume2, VolumeX, Maximize2, Minimize2, Sliders, Radio, Globe, Mic, Check, Download, Smartphone } from 'lucide-react';
+import { Volume2, VolumeX, Maximize2, Minimize2, Sliders, Radio, Globe, Mic, Check, Download, Smartphone, Power, Wrench } from 'lucide-react';
 import { soundSynth } from '../audio/synth';
 import { speechController } from '../audio/speech';
 
@@ -10,7 +10,7 @@ interface HeaderProps {
   biometricConfirmed: boolean;
   consolidated: boolean;
   briefingOn: boolean;
-  onOpenSettings: () => void;
+  onOpenSettings: (tab?: any) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -129,8 +129,28 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="text-[11px] text-slate-400">HOST NATIVO (100% LOCAL)</span>
         </div>
 
-        {/* Action Buttons: Network Share & PWA Install */}
+        {/* Action Buttons: Network Share & PWA Install & System Tools */}
         <div className="flex items-center gap-2">
+          {/* Startup Apps Button */}
+          <button
+            onClick={() => onOpenSettings('startup')}
+            title="Gerenciar Aplicativos de Inicialização do Windows"
+            className="hidden sm:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-purple-500/60 bg-purple-950/70 hover:bg-purple-900 text-[10px] text-purple-300 hover:text-white font-mono transition-all shadow-[0_0_10px_rgba(168,85,247,0.3)] cursor-pointer"
+          >
+            <Power className="w-3 h-3 text-purple-400" />
+            <span className="font-bold">BOOT / STARTUP</span>
+          </button>
+
+          {/* System Repair Button */}
+          <button
+            onClick={() => onOpenSettings('reparo')}
+            title="Abrir Suíte de Conserto & Reparo do Windows"
+            className="hidden sm:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-emerald-500/60 bg-emerald-950/70 hover:bg-emerald-900 text-[10px] text-emerald-300 hover:text-white font-mono transition-all shadow-[0_0_10px_rgba(16,185,129,0.3)] cursor-pointer"
+          >
+            <Wrench className="w-3 h-3 text-emerald-400" />
+            <span className="font-bold">REPARAR PC</span>
+          </button>
+
           <button
             onClick={copyNetworkLink}
             title="Clique para copiar o endereço de acesso pela rede local"

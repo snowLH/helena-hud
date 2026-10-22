@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, Send, Terminal, Sparkles, Zap, Trash2, Cpu } from 'lucide-react';
+import { Mic, MicOff, Send, Terminal, Sparkles, Zap, Trash2, Cpu, Wrench, Power, Globe, Rocket } from 'lucide-react';
 import { soundSynth } from '../audio/synth';
 
 interface CommandBarProps {
@@ -109,8 +109,10 @@ export const CommandBar: React.FC<CommandBarProps> = ({
   const quickPills = [
     { label: 'Helena, bom dia', icon: <Sparkles className="w-3 h-3 text-cyan-400" /> },
     { label: 'Helena, otimizar computador', icon: <Zap className="w-3 h-3 text-amber-400" /> },
-    { label: 'Helena, limpar memória', icon: <Trash2 className="w-3 h-3 text-purple-400" /> },
-    { label: 'Helena, relatório de sistema', icon: <Cpu className="w-3 h-3 text-emerald-400" /> }
+    { label: 'Helena, reparar o PC', icon: <Wrench className="w-3 h-3 text-emerald-400" /> },
+    { label: 'Helena, programas de inicialização', icon: <Power className="w-3 h-3 text-purple-400" /> },
+    { label: 'Helena, abrir calculadora', icon: <Rocket className="w-3 h-3 text-rose-400" /> },
+    { label: 'Helena, o que é IA?', icon: <Globe className="w-3 h-3 text-cyan-400" /> }
   ];
 
   return (

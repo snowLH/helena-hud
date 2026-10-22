@@ -40,6 +40,7 @@ export function App() {
 
   // UI Modals & Processing
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [settingsTab, setSettingsTab] = useState<'jarvis_voz' | 'startup' | 'reparo' | 'rede' | 'perfil' | 'agenda' | 'prioridades' | 'raw'>('jarvis_voz');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
   const activeFlowRef = useRef<boolean>(false);
@@ -300,13 +301,20 @@ export function App() {
       const data = await brainRes.json();
 
       if (data.cartoes && data.cartoes.length > 0) {
-        const card = data.cartoes[0];
-        setCurrentCard(card);
-        setHelenaState('FALANDO');
-        await speechController.speak(card.fala);
-        await new Promise((r) => setTimeout(r, 500));
-        pushCardToDock(card);
-        setCurrentCard(null);
+        for (let i = 0; i < data.cartoes.length; i++) {
+          const card = data.cartoes[i];
+          setCurrentCard(card);
+          setHelenaState('FALANDO');
+          await speechController.speak(card.fala);
+          await new Promise((r) => setTimeout(r, 600));
+          pushCardToDock(card);
+          setCurrentCard(null);
+          await new Promise((r) => setTimeout(r, 300));
+        }
+
+        if (data.intent === 'repair' || data.intent === 'otimizar') {
+          await fetchTelemetry();
+        }
       }
     } catch (err) {
       console.error('Erro ao consultar cérebro:', err);
@@ -325,7 +333,10 @@ export function App() {
         biometricConfirmed={biometricConfirmed}
         consolidated={consolidated}
         briefingOn={briefingOn}
-        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenSettings={(tab) => {
+          setSettingsTab(tab || 'jarvis_voz');
+          setIsSettingsOpen(true);
+        }}
       />
 
       {/* Main HUD Body */}
@@ -408,12 +419,13 @@ export function App() {
         />
       </footer>
 
-      {/* Settings Modal (dados_pessoais.json editor) */}
+      {/* Settings Modal (dados_pessoais.json editor, voz, startup & reparo) */}
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         personalData={personalData}
         onSave={handleSavePersonalData}
+        initialTab={settingsTab}
       />
     </div>
   );

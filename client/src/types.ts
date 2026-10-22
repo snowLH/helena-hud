@@ -61,6 +61,37 @@ export interface OptimizationReport {
   resumo: string;
 }
 
+export interface RepairReport {
+  timestamp: string;
+  sucesso: boolean;
+  acoesExecutadas: Array<{
+    etapa: string;
+    status: string;
+    detalhe: string;
+  }>;
+  errosCorrigidos: number;
+  resumo?: string;
+}
+
+export interface StartupApp {
+  id: string;
+  name: string;
+  command: string;
+  location?: string;
+  enabled: boolean;
+  impact: 'ALTO' | 'MÉDIO' | 'BAIXO';
+}
+
+export interface SearchResult {
+  online: boolean;
+  termo: string;
+  titulo?: string;
+  resumo: string;
+  fonteUrl?: string;
+  imagemUrl?: string;
+  fala: string;
+}
+
 export interface AgendaItem {
   id: string;
   horario: string;
@@ -116,7 +147,21 @@ export interface PersonalData {
 export interface HelenaCard {
   id: string;
   titulo: string;
-  tipo: 'hardware_network' | 'agenda_local' | 'prioridades' | 'finalizacao' | 'analise_hardware' | 'limpeza_temp' | 'rede_memoria' | 'processos_pesados' | 'relatorio_geral' | 'resposta_neural';
+  tipo:
+    | 'hardware_network'
+    | 'agenda_local'
+    | 'prioridades'
+    | 'finalizacao'
+    | 'analise_hardware'
+    | 'limpeza_temp'
+    | 'rede_memoria'
+    | 'processos_pesados'
+    | 'relatorio_geral'
+    | 'resposta_neural'
+    | 'reparo_sistema'
+    | 'startup_manager'
+    | 'app_launcher'
+    | 'pesquisa_web';
   subtitulo: string;
   fala: string;
   metricas?: Array<{ label: string; valor: string; detalhe?: string }>;
@@ -126,6 +171,10 @@ export interface HelenaCard {
   mensagem?: string;
   endpointAcao?: string;
   resultadoOtimizacao?: OptimizationReport;
+  relatorioReparo?: RepairReport;
+  resultadoPesquisa?: SearchResult;
+  startupApps?: StartupApp[];
+  appLancado?: string;
   motor?: string;
   texto?: string;
 }
