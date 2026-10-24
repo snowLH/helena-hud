@@ -287,12 +287,23 @@ export const EnergyOrb: React.FC<EnergyOrbProps> = ({
   }, [state, isSpeaking]);
 
   return (
-    <div className="relative flex items-center justify-center w-[440px] h-[440px] pointer-events-none select-none">
+    <div className="relative flex items-center justify-center w-[320px] h-[320px] sm:w-[360px] sm:h-[360px] lg:w-[390px] lg:h-[390px] pointer-events-none select-none">
+      {/* Decorative Holographic HUD Rings */}
+      <div className="absolute inset-0 border border-purple-500/20 rounded-full animate-spin-slow pointer-events-none" />
+      <div className="absolute inset-4 border border-dashed border-cyan-400/25 rounded-full animate-reverse-spin pointer-events-none" />
+      <div className="absolute inset-10 border border-purple-400/15 rounded-full pointer-events-none" />
+
+      {/* Crosshair accents */}
+      <div className="absolute -top-1 w-2 h-0.5 bg-cyan-400/60 shadow-[0_0_6px_#00f0ff]" />
+      <div className="absolute -bottom-1 w-2 h-0.5 bg-cyan-400/60 shadow-[0_0_6px_#00f0ff]" />
+      <div className="absolute -left-1 w-0.5 h-2 bg-cyan-400/60 shadow-[0_0_6px_#00f0ff]" />
+      <div className="absolute -right-1 w-0.5 h-2 bg-cyan-400/60 shadow-[0_0_6px_#00f0ff]" />
+
       {/* 3D Canvas Layer */}
       <canvas
         ref={canvasRef}
-        width={440}
-        height={440}
+        width={400}
+        height={400}
         className="absolute inset-0 w-full h-full z-10"
       />
 

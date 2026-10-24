@@ -28,7 +28,7 @@ export const CardFocus: React.FC<CardFocusProps> = ({ card, isSpeaking, onNext }
       animate={{ scale: 1, opacity: 1, y: 0 }}
       exit={{ scale: 0.75, opacity: 0, y: 180 }}
       transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-      className="relative z-30 w-full max-w-[580px] rounded-2xl border-2 border-cyan-400/70 bg-slate-950/90 backdrop-blur-xl p-6 shadow-[0_0_50px_rgba(0,240,255,0.4)] text-left"
+      className="relative z-30 w-full max-w-[520px] rounded-2xl border-2 border-cyan-400/70 bg-slate-950/95 backdrop-blur-xl p-4 sm:p-5 shadow-[0_0_50px_rgba(0,240,255,0.4)] text-left"
     >
       {/* Corner Sci-Fi Tech Brackets */}
       <div className="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2 border-cyan-400" />
@@ -37,27 +37,27 @@ export const CardFocus: React.FC<CardFocusProps> = ({ card, isSpeaking, onNext }
       <div className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-cyan-400" />
 
       {/* Header of the Card */}
-      <div className="flex items-center justify-between pb-3 mb-4 border-b border-cyan-500/30">
+      <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-cyan-500/30">
         <div>
-          <span className="text-[10px] font-mono tracking-[0.2em] text-cyan-400/90 uppercase">
+          <span className="text-[9px] font-mono tracking-[0.2em] text-cyan-400/90 uppercase">
             H.E.L.E.N.A. // FOCO TÁTICO
           </span>
-          <h2 className="text-xl font-mono font-bold text-white tracking-wide flex items-center gap-2 mt-0.5">
+          <h2 className="text-lg font-mono font-bold text-white tracking-wide flex items-center gap-2 mt-0.5">
             {card.titulo}
           </h2>
-          <p className="text-xs font-mono text-purple-300/80">{card.subtitulo}</p>
+          <p className="text-[11px] font-mono text-purple-300/80">{card.subtitulo}</p>
         </div>
 
         {isSpeaking && (
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-950/80 border border-cyan-400 text-[10px] font-mono font-bold text-cyan-300 animate-pulse">
-            <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_6px_#00f0ff]" />
+          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-400 text-[9px] font-mono font-bold text-cyan-300 animate-pulse">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_#00f0ff]" />
             NARRANDO
           </div>
         )}
       </div>
 
       {/* Card Content based on type */}
-      <div className="space-y-4 text-xs font-mono max-h-[380px] overflow-y-auto pr-1 scrollbar-thin">
+      <div className="space-y-3 text-xs font-mono max-h-[min(320px,calc(100vh-240px))] overflow-y-auto pr-1 scrollbar-thin">
         {/* 1. Hardware & Network Metrics */}
         {card.metricas && (
           <div className="grid grid-cols-2 gap-3">

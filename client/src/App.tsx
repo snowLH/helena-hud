@@ -340,14 +340,14 @@ export function App() {
       />
 
       {/* Main HUD Body */}
-      <main className="relative flex-1 flex items-center justify-between px-6 py-2 overflow-hidden">
+      <main className="relative flex-1 flex items-center justify-between px-3 sm:px-6 py-1 overflow-hidden min-h-0">
         {/* Left Widget Panel */}
         <div className="hidden lg:flex shrink-0">
           <LeftPanel status={systemStatus} />
         </div>
 
         {/* Central Stage: 3D Energy Orb & Active Focus Cards */}
-        <div className="relative flex-1 flex flex-col items-center justify-center h-full px-4">
+        <div className="relative flex-1 flex flex-col items-center justify-center h-full px-2 sm:px-4 min-h-0">
           {/* Energy Orb Canvas Layer */}
           <div className="relative flex items-center justify-center">
             <EnergyOrb
@@ -404,7 +404,7 @@ export function App() {
       </main>
 
       {/* Footer Area: Bottom Dock + Quick Command Bar */}
-      <footer className="w-full flex flex-col items-center pb-3 px-6 z-30 gap-2">
+      <footer className="w-full flex flex-col items-center pb-2 px-3 sm:px-6 z-30 gap-1.5 shrink-0">
         <BottomDock
           cards={dockCards}
           onSelectCard={(card) => {

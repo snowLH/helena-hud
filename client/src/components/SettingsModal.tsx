@@ -28,6 +28,28 @@ interface SettingsModalProps {
   initialTab?: 'jarvis_voz' | 'startup' | 'reparo' | 'rede' | 'perfil' | 'agenda' | 'prioridades' | 'raw';
 }
 
+const DEFAULT_FALLBACK_DATA: PersonalData = {
+  usuario: {
+    nome: "Comandante",
+    titulo: "Usuário",
+    preferenciaVoz: "Thalita",
+    cidade: "São Paulo"
+  },
+  clima: {
+    cidade: "São Paulo",
+    condicao: "Céu Limpo",
+    temperatura: 24,
+    minima: 18,
+    maxima: 28,
+    umidade: 55,
+    ventoKmH: 12,
+    probabilidadeChuva: "10%"
+  },
+  agenda: [],
+  prioridades: [],
+  metas: []
+};
+
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
   onClose,
@@ -35,11 +57,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onSave,
   initialTab = 'jarvis_voz'
 }) => {
-  const [data, setData] = useState<PersonalData | null>(null);
+  const [data, setData] = useState<PersonalData>(personalData || DEFAULT_FALLBACK_DATA);
   const [activeTab, setActiveTab] = useState<'jarvis_voz' | 'startup' | 'reparo' | 'rede' | 'perfil' | 'agenda' | 'prioridades' | 'raw'>(initialTab);
   const [saving, setSaving] = useState<boolean>(false);
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
-  const [rawJson, setRawJson] = useState<string>('');
+  const [rawJson, setRawJson] = useState<string>(JSON.stringify(personalData || DEFAULT_FALLBACK_DATA, null, 2));
 
   // J.A.R.V.I.S. Voice state
   const [activePresetId, setActivePresetId] = useState<string>(speechController.activePresetId);
@@ -60,10 +82,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
 
   useEffect(() => {
-    if (personalData) {
-      setData(JSON.parse(JSON.stringify(personalData)));
-      setRawJson(JSON.stringify(personalData, null, 2));
+    if (initialTab) {
+      setActiveTab(initialTab);
     }
+  }, [initialTab, isOpen]);
+
+  useEffect(() => {
+    const current = personalData || DEFAULT_FALLBACK_DATA;
+    setData(JSON.parse(JSON.stringify(current)));
+    setRawJson(JSON.stringify(current, null, 2));
 
     setActivePresetId(speechController.activePresetId);
     setHolographicEffect(speechController.holographicEffect);
@@ -137,7 +164,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
-  if (!isOpen || !data) return null;
+  if (!isOpen) return null;
 
   const handleSelectPreset = (presetId: string) => {
     soundSynth.playTelemetryBeep();
