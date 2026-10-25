@@ -256,6 +256,15 @@ export interface LongTermMemory {
   };
 }
 
+export interface ExamItem {
+  id: string;
+  materia: string;
+  dataHora: string;
+  status: 'A Iniciar' | 'Revisando' | 'Dominado';
+  topicos: string[];
+  progresso: number;
+}
+
 export interface HelenaCard {
   id: string;
   titulo: string;
@@ -283,7 +292,9 @@ export interface HelenaCard {
     | 'anotacoes'
     | 'modo_trabalho'
     | 'organizador_arquivos'
-    | 'memoria_longa';
+    | 'memoria_longa'
+    | 'modo_estudo'
+    | 'dicas_estudo';
   subtitulo: string;
   fala: string;
   metricas?: Array<{ label: string; valor: string; detalhe?: string }>;
@@ -309,6 +320,20 @@ export interface HelenaCard {
   modoTrabalho?: { urls: string[]; apps: string[]; openedCount: number };
   arquivosScan?: any;
   memoriaGravada?: any;
+  modoEstudo?: {
+    status: string;
+    tempoFocoMinutos: number;
+    intervaloMinutos: number;
+    frequenciaFoco: string;
+    dica: string;
+    acaoSugerida?: string;
+  };
+  dicasEstudo?: {
+    metodo: string;
+    explicacao: string;
+    passos: string[];
+    recomendacao: string;
+  };
 }
 
 export type HelenaState = 'EM ESPERA' | 'FALANDO' | 'PROCESSANDO' | 'BIOMETRIA';

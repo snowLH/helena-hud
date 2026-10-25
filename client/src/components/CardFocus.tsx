@@ -21,16 +21,19 @@ import {
   Briefcase,
   FolderOpen,
   Brain,
-  Terminal
+  Terminal,
+  GraduationCap,
+  Lightbulb
 } from 'lucide-react';
 
 interface CardFocusProps {
   card: HelenaCard;
   isSpeaking: boolean;
   onNext?: () => void;
+  onOpenStudy?: () => void;
 }
 
-export const CardFocus: React.FC<CardFocusProps> = ({ card, isSpeaking, onNext }) => {
+export const CardFocus: React.FC<CardFocusProps> = ({ card, isSpeaking, onNext, onOpenStudy }) => {
   return (
     <motion.div
       key={card.id}
@@ -758,6 +761,94 @@ export const CardFocus: React.FC<CardFocusProps> = ({ card, isSpeaking, onNext }
                 <span>{new Date(card.memoriaGravada.data).toLocaleDateString('pt-BR')}</span>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* 23. Modo de Estudos & Semana de Provas */}
+        {card.tipo === 'modo_estudo' && (
+          <div className="space-y-3">
+            <div className="p-3 rounded-lg border border-emerald-500/60 bg-emerald-950/40 flex items-center justify-between shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+              <div className="flex items-center gap-3">
+                <GraduationCap className="w-6 h-6 text-emerald-400 shrink-0 animate-pulse" />
+                <div>
+                  <span className="text-emerald-300 font-bold uppercase tracking-wider text-xs">
+                    PROTOCOLO DE ESTUDOS ATIVADO
+                  </span>
+                  <p className="text-[11px] text-slate-200 mt-0.5">
+                    Ambiente otimizado para imersão e retenção neural.
+                  </p>
+                </div>
+              </div>
+
+              {onOpenStudy && (
+                <button
+                  onClick={onOpenStudy}
+                  className="px-3 py-1.5 rounded-lg border border-emerald-400 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-200 text-xs font-bold transition-all shadow-[0_0_10px_rgba(16,185,129,0.4)] cursor-pointer"
+                >
+                  Abrir Central (Ctrl+E)
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-[10px]">
+              <div className="p-2.5 rounded bg-slate-900/70 border border-emerald-500/30">
+                <span className="text-slate-400 uppercase block">Temporizador Recomendado</span>
+                <span className="text-sm font-bold text-emerald-300">25 min Foco / 5 min Pausa</span>
+              </div>
+              <div className="p-2.5 rounded bg-slate-900/70 border border-cyan-500/30">
+                <span className="text-slate-400 uppercase block">Frequência Bioacústica</span>
+                <span className="text-sm font-bold text-cyan-300">432Hz Ondas Alfa</span>
+              </div>
+            </div>
+
+            {card.modoEstudo?.dica && (
+              <div className="p-2.5 rounded bg-purple-950/40 border border-purple-500/30 text-[11px] text-purple-200 flex items-start gap-2">
+                <Lightbulb className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <span>{card.modoEstudo.dica}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 24. Dicas de Estudo & Neurociência */}
+        {card.tipo === 'dicas_estudo' && (
+          <div className="space-y-3">
+            <div className="p-3 rounded-lg border border-cyan-500/60 bg-cyan-950/40 flex items-center gap-3 shadow-[0_0_15px_rgba(0,240,255,0.3)]">
+              <Brain className="w-6 h-6 text-cyan-400 shrink-0 animate-pulse" />
+              <div>
+                <span className="text-cyan-300 font-bold uppercase tracking-wider text-xs">
+                  {card.dicasEstudo?.metodo || 'Método Neurocognitivo de Aprendizado'}
+                </span>
+                <p className="text-[11px] text-slate-200 mt-0.5">
+                  {card.dicasEstudo?.explicacao || 'Diretrizes comprovadas pela neurociência para consolidação de memória.'}
+                </p>
+              </div>
+            </div>
+
+            {card.dicasEstudo?.passos && (
+              <div className="space-y-1.5 p-3 rounded-lg border border-purple-500/30 bg-slate-900/80">
+                <span className="text-[10px] text-purple-300 uppercase font-mono tracking-wider block">
+                  Etapas Práticas:
+                </span>
+                {card.dicasEstudo.passos.map((passo: string, idx: number) => (
+                  <div key={idx} className="flex items-start gap-2 text-xs text-slate-200">
+                    <span className="text-cyan-400 font-bold">{idx + 1}.</span>
+                    <span>{passo}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {onOpenStudy && (
+              <div className="flex justify-end">
+                <button
+                  onClick={onOpenStudy}
+                  className="px-3 py-1.5 rounded-lg border border-emerald-400 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-200 text-xs font-bold transition-all shadow-[0_0_10px_rgba(16,185,129,0.3)] cursor-pointer"
+                >
+                  Ver Todas as Dicas na Central de Estudos
+                </button>
+              </div>
+            )}
           </div>
         )}
 

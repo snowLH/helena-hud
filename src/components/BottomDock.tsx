@@ -16,7 +16,8 @@ import {
   Rocket,
   Briefcase,
   FolderOpen,
-  Brain
+  Brain,
+  GraduationCap
 } from 'lucide-react';
 import { soundSynth } from '../audio/synth';
 
@@ -60,6 +61,9 @@ export const BottomDock: React.FC<BottomDockProps> = ({
         return <FolderOpen className="w-3.5 h-3.5 text-purple-400" />;
       case 'memoria_longa':
         return <Brain className="w-3.5 h-3.5 text-purple-300" />;
+      case 'modo_estudo':
+      case 'dicas_estudo':
+        return <GraduationCap className="w-3.5 h-3.5 text-emerald-400" />;
       case 'finalizacao':
         return <Sparkles className="w-3.5 h-3.5 text-cyan-300" />;
       default:

@@ -18,7 +18,8 @@ import {
   ArrowRight,
   Briefcase,
   FolderOpen,
-  Brain
+  Brain,
+  GraduationCap
 } from 'lucide-react';
 import { soundSynth } from '../audio/synth';
 
@@ -48,6 +49,26 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
 
   const commandsList: CommandItem[] = useMemo(
     () => [
+      // 0. Modo de Estudos & Semana de Provas
+      {
+        id: 'cmd-study-mode',
+        category: 'otimizacao',
+        command: 'Helena, iniciar modo de estudos',
+        title: 'Central de Estudos & Semana de Provas (Ctrl+E)',
+        description: 'Ativa temporizador Pomodoro tático, som binaural 432Hz e cronograma de provas.',
+        icon: <GraduationCap className="w-4 h-4 text-emerald-400" />,
+        badge: 'ESTUDOS'
+      },
+      {
+        id: 'cmd-study-tips',
+        category: 'diagnostico',
+        command: 'Helena, dicas de estudo e memorização',
+        title: 'Métodos Neurocognitivos de Aprendizado',
+        description: 'Apresenta a Técnica Feynman, repetição espaçada e recordação ativa para provas.',
+        icon: <Brain className="w-4 h-4 text-cyan-400" />,
+        badge: 'NEURAL'
+      },
+
       // 1. Otimização
       {
         id: 'cmd-opt',

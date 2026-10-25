@@ -33,36 +33,45 @@ if (!fs.existsSync(ttsCacheDir)) {
 
 // Helper to safely load personal data
 function loadDadosPessoais() {
+  if (cachedDadosPessoais) return cachedDadosPessoais;
   try {
     if (fs.existsSync(DADOS_PESSOAIS_PATH)) {
       const raw = fs.readFileSync(DADOS_PESSOAIS_PATH, 'utf-8');
-      return JSON.parse(raw);
+      cachedDadosPessoais = JSON.parse(raw);
+      return cachedDadosPessoais;
     }
   } catch (err) {
     console.error('Erro ao ler dados_pessoais.json:', err.message);
   }
-  return {
+  cachedDadosPessoais = {
     usuario: { nome: "Operador", titulo: "Comandante", preferenciaVoz: "feminina", cidade: "São Paulo, SP" },
     clima: { cidade: "São Paulo", temperatura: 24, condicao: "Céu Limpo", minima: 18, maxima: 28, umidade: 60, ventoKmH: 12, probabilidadeChuva: "10%" },
     agenda: [],
     prioridades: [],
     metas: []
   };
+  return cachedDadosPessoais;
 }
 
 const PERFIL_USUARIO_PATH = path.join(__dirname, 'perfil_usuario.json');
 const MEMORIA_LONGA_PATH = path.join(__dirname, 'memoria_longa.json');
 
+let cachedPerfil = null;
+let cachedMemoria = null;
+let cachedDadosPessoais = null;
+
 function loadPerfilUsuario() {
+  if (cachedPerfil) return cachedPerfil;
   try {
     if (fs.existsSync(PERFIL_USUARIO_PATH)) {
       const raw = fs.readFileSync(PERFIL_USUARIO_PATH, 'utf-8');
-      return JSON.parse(raw);
+      cachedPerfil = JSON.parse(raw);
+      return cachedPerfil;
     }
   } catch (err) {
     console.error('Erro ao ler perfil_usuario.json:', err.message);
   }
-  return {
+  cachedPerfil = {
     usuario: { nome: "Operador", titulo: "Comandante", preferenciaVoz: "feminina", cidade: "São Paulo, SP" },
     rotina: { horarioInicio: "08:30", focoPrincipal: "Desenvolvimento de Software e Engenharia de Sistemas", intervalos: "Pausas regulares" },
     projetosAtuais: [
@@ -71,9 +80,11 @@ function loadPerfilUsuario() {
     preferenciasPC: { modoEnergia: "Alto Desempenho", alertaRAM: 85, limpezaAutomaticaTemp: true, pastasMonitoradas: ["Downloads", "Documents"] },
     modoTrabalho: { urls: ["https://github.com", "https://google.com"], aplicativos: ["code"] }
   };
+  return cachedPerfil;
 }
 
 function savePerfilUsuario(data) {
+  cachedPerfil = data;
   try {
     fs.writeFileSync(PERFIL_USUARIO_PATH, JSON.stringify(data, null, 2), 'utf-8');
     const clientPath = path.join(__dirname, 'client', 'perfil_usuario.json');
@@ -82,28 +93,32 @@ function savePerfilUsuario(data) {
     }
     return true;
   } catch (err) {
-    console.error('Erro ao salvar perfil_usuario.json:', err.message);
-    return false;
+    console.warn('Aviso: Salvo em memória runtime (disco read-only?):', err.message);
+    return true;
   }
 }
 
 function loadMemoriaLonga() {
+  if (cachedMemoria) return cachedMemoria;
   try {
     if (fs.existsSync(MEMORIA_LONGA_PATH)) {
       const raw = fs.readFileSync(MEMORIA_LONGA_PATH, 'utf-8');
-      return JSON.parse(raw);
+      cachedMemoria = JSON.parse(raw);
+      return cachedMemoria;
     }
   } catch (err) {
     console.error('Erro ao ler memoria_longa.json:', err.message);
   }
-  return {
+  cachedMemoria = {
     padroesAprendidos: [],
     memoriasEpisodicas: [],
     estatisticas: { totalInteracoes: 0, otimizacoesRealizadas: 0, briefingsExecutados: 0, arquivosOrganizados: 0, ultimaInteracao: new Date().toISOString() }
   };
+  return cachedMemoria;
 }
 
 function saveMemoriaLonga(data) {
+  cachedMemoria = data;
   try {
     fs.writeFileSync(MEMORIA_LONGA_PATH, JSON.stringify(data, null, 2), 'utf-8');
     const clientPath = path.join(__dirname, 'client', 'memoria_longa.json');
@@ -112,8 +127,8 @@ function saveMemoriaLonga(data) {
     }
     return true;
   } catch (err) {
-    console.error('Erro ao salvar memoria_longa.json:', err.message);
-    return false;
+    console.warn('Aviso: Salvo em memória runtime (disco read-only?):', err.message);
+    return true;
   }
 }
 
@@ -1334,8 +1349,17 @@ app.post('/api/briefing/data', (req, res) => {
     if (!updatedData || typeof updatedData !== 'object') {
       return res.status(400).json({ error: 'Dados inválidos' });
     }
-    fs.writeFileSync(DADOS_PESSOAIS_PATH, JSON.stringify(updatedData, null, 2), 'utf-8');
-    res.json({ success: true, message: 'Dados pessoais atualizados com sucesso no pen drive.' });
+    cachedDadosPessoais = updatedData;
+    try {
+      fs.writeFileSync(DADOS_PESSOAIS_PATH, JSON.stringify(updatedData, null, 2), 'utf-8');
+      const clientPath = path.join(__dirname, 'client', 'dados_pessoais.json');
+      if (fs.existsSync(path.join(__dirname, 'client'))) {
+        try { fs.writeFileSync(clientPath, JSON.stringify(updatedData, null, 2), 'utf-8'); } catch (_) {}
+      }
+    } catch (diskErr) {
+      console.warn('Aviso: Dados salvos em memória runtime (disco read-only):', diskErr.message);
+    }
+    res.json({ success: true, message: 'Dados pessoais atualizados com sucesso.' });
   } catch (err) {
     res.status(500).json({ error: 'Falha ao salvar dados pessoais', message: err.message });
   }
@@ -1631,6 +1655,68 @@ app.post('/api/helena/brain', async (req, res) => {
 
       request.write(postData);
       request.end();
+    });
+  }
+
+  // 0.001. MODO DE ESTUDOS & SEMANA DE PROVAS
+  if (
+    cmd.includes('modo de estudo') || cmd.includes('modo estudo') ||
+    cmd.includes('modo de prova') || cmd.includes('modo prova') ||
+    cmd.includes('semana de prova') || cmd.includes('iniciar estudos') ||
+    cmd.includes('foco nos estudos') || cmd.includes('minhas provas') ||
+    cmd.includes('central de estudos') || cmd.includes('estudar')
+  ) {
+    appendMemoria('estudos', 'Sessão de Modo de Estudos e Preparação para Provas ativada com temporizador tático.', 'Média');
+    return res.json({
+      intent: 'modo_estudo',
+      cartoes: [
+        {
+          id: 'card-modo-estudo',
+          titulo: 'Modo de Estudos & Foco Tático Ativado',
+          tipo: 'modo_estudo',
+          subtitulo: 'Sessão Pomodoro e Frequência 432Hz Calibradas',
+          fala: 'Modo de estudos tático ativado, Comandante. Otimizando o ambiente para máxima retenção neural. Recomendo blocos de 25 minutos de foco absoluto seguidos por 5 minutos de pausa. Desejo excelente rendimento em suas avaliações!',
+          modoEstudo: {
+            status: 'Ativo',
+            tempoFocoMinutos: 25,
+            intervaloMinutos: 5,
+            frequenciaFoco: '432Hz Alpha Waves',
+            dica: 'Utilize a Técnica Feynman: explique o conceito com suas próprias palavras para fixar o conteúdo na memória de longo prazo.'
+          }
+        }
+      ]
+    });
+  }
+
+  // 0.002. DICAS DE ESTUDO & NEUROCIÊNCIA
+  if (
+    cmd.includes('dica de estudo') || cmd.includes('dicas de estudo') ||
+    cmd.includes('como estudar') || cmd.includes('técnica de memorização') ||
+    cmd.includes('técnicas de estudo') || cmd.includes('boa sorte na prova') ||
+    cmd.includes('feynman') || cmd.includes('ansiedade de prova')
+  ) {
+    return res.json({
+      intent: 'dicas_estudo',
+      cartoes: [
+        {
+          id: 'card-dicas-estudo',
+          titulo: 'Diretrizes Neurocognitivas de Aprendizado',
+          tipo: 'dicas_estudo',
+          subtitulo: 'Protocolos Comprovados de Retenção Sináptica',
+          fala: 'Comandante, a chave da alta performance em provas é a Recordação Ativa e a Técnica Feynman. Em vez de reler passivamente, feche o caderno e tente explicar o conteúdo em voz alta como se ensinasse outra pessoa. Isso força o cérebro a sintetizar sinapses permanentes. Confie no seu preparo e respire fundo!',
+          dicasEstudo: {
+            metodo: 'Recordação Ativa & Técnica Feynman',
+            explicacao: 'Releitura passiva gera falsa sensação de domínio. Apenas testes ativos e explicação própria transferem o aprendizado para o córtex permanente.',
+            passos: [
+              '1. Estude o bloco de tópicos por 25 minutos sem distrações.',
+              '2. Feche o material e escreva em uma folha em branco tudo o que lembra.',
+              '3. Identifique as lacunas e consulte apenas os pontos em que você travou.',
+              '4. Não negligencie o sono: o hipocampo grava o aprendizado nas fases de sono REM.'
+            ],
+            recomendacao: 'Foco total nas suas revisões. Você está no caminho certo.'
+          }
+        }
+      ]
     });
   }
 

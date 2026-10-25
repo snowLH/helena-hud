@@ -310,6 +310,105 @@ class SoundSynthesizer {
       osc.stop(now + 0.2);
     } catch (_) {}
   }
+
+  // --- FOCUS SOUNDSCAPE & BINAURAL BEAT ENGINE (Procedural Web Audio) ---
+  private droneGain: GainNode | null = null;
+  private droneOscs: OscillatorNode[] = [];
+  public isFocusDroneActive: boolean = false;
+
+  public startFocusBinauralDrone(mode: 'alpha_432' | 'deep_space' = 'alpha_432') {
+    if (!this.enabled) return;
+    this.stopFocusBinauralDrone();
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+
+      const now = this.ctx.currentTime;
+      this.droneGain = this.ctx.createGain();
+      this.droneGain.gain.setValueAtTime(0.001, now);
+      this.droneGain.gain.exponentialRampToValueAtTime(0.035, now + 1.5);
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(360, now);
+
+      // Binaural frequencies: 216Hz and 226Hz -> 10Hz Alpha difference for relaxed sharp concentration
+      const baseFreq = mode === 'alpha_432' ? 216 : 144;
+      const beatOffset = 10; // 10Hz Alpha wave
+
+      const oscLeft = this.ctx.createOscillator();
+      const oscRight = this.ctx.createOscillator();
+      const oscSub = this.ctx.createOscillator();
+
+      oscLeft.type = 'sine';
+      oscRight.type = 'sine';
+      oscSub.type = 'triangle';
+
+      oscLeft.frequency.setValueAtTime(baseFreq, now);
+      oscRight.frequency.setValueAtTime(baseFreq + beatOffset, now);
+      oscSub.frequency.setValueAtTime(baseFreq / 2, now);
+
+      oscLeft.connect(filter);
+      oscRight.connect(filter);
+      oscSub.connect(filter);
+      filter.connect(this.droneGain);
+      this.droneGain.connect(this.ctx.destination);
+
+      oscLeft.start(now);
+      oscRight.start(now);
+      oscSub.start(now);
+
+      this.droneOscs = [oscLeft, oscRight, oscSub];
+      this.isFocusDroneActive = true;
+    } catch (_) {}
+  }
+
+  public stopFocusBinauralDrone() {
+    if (this.droneGain && this.ctx) {
+      try {
+        const now = this.ctx.currentTime;
+        this.droneGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
+        setTimeout(() => {
+          this.droneOscs.forEach(o => {
+            try { o.stop(); o.disconnect(); } catch (_) {}
+          });
+          this.droneOscs = [];
+          this.droneGain = null;
+          this.isFocusDroneActive = false;
+        }, 850);
+      } catch (_) {
+        this.droneOscs = [];
+        this.droneGain = null;
+        this.isFocusDroneActive = false;
+      }
+    } else {
+      this.droneOscs = [];
+      this.droneGain = null;
+      this.isFocusDroneActive = false;
+    }
+  }
+
+  public playPomodoroAlert(type: 'focus_start' | 'break_start' | 'complete' = 'complete') {
+    if (!this.enabled) return;
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const notes = type === 'focus_start' ? [440, 554.37, 659.25] : type === 'break_start' ? [659.25, 554.37, 440] : [523.25, 659.25, 783.99, 1046.5];
+      notes.forEach((freq, idx) => {
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+        gain.gain.setValueAtTime(0.07, now + idx * 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.1 + 0.35);
+        osc.connect(gain);
+        gain.connect(this.ctx!.destination);
+        osc.start(now + idx * 0.1);
+        osc.stop(now + idx * 0.1 + 0.35);
+      });
+    } catch (_) {}
+  }
 }
 
 export const soundSynth = new SoundSynthesizer();

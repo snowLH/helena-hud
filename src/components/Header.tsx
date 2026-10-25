@@ -18,7 +18,8 @@ import {
   Gauge,
   Terminal,
   Brain,
-  ChevronDown
+  ChevronDown,
+  GraduationCap
 } from 'lucide-react';
 import { soundSynth } from '../audio/synth';
 import { speechController } from '../audio/speech';
@@ -32,6 +33,7 @@ interface HeaderProps {
   onOpenSettings: (tab?: any) => void;
   onOpenCommands: () => void;
   onOpenMemoryProfile?: () => void;
+  onOpenStudy?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -42,7 +44,8 @@ export const Header: React.FC<HeaderProps> = ({
   briefingOn,
   onOpenSettings,
   onOpenCommands,
-  onOpenMemoryProfile
+  onOpenMemoryProfile,
+  onOpenStudy
 }) => {
   const [timeStr, setTimeStr] = useState<string>('');
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
@@ -281,6 +284,22 @@ export const Header: React.FC<HeaderProps> = ({
                 <span>Suíte do Sistema</span>
                 <span className="text-[8px] text-purple-400">H.E.L.E.N.A.</span>
               </div>
+
+              {onOpenStudy && (
+                <button
+                  onClick={() => {
+                    setToolsOpen(false);
+                    onOpenStudy();
+                  }}
+                  className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left text-xs font-mono text-emerald-200 hover:text-white hover:bg-emerald-950/70 border border-emerald-500/30 hover:border-emerald-400 transition-all cursor-pointer shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+                >
+                  <GraduationCap className="w-4 h-4 text-emerald-400 shrink-0 animate-pulse" />
+                  <div>
+                    <div className="font-semibold text-[11px] text-emerald-300">Central de Estudos & Provas</div>
+                    <div className="text-[9px] text-emerald-400/80">Timer Pomodoro, 432Hz e Agenda (Ctrl+E)</div>
+                  </div>
+                </button>
+              )}
 
               <button
                 onClick={() => {

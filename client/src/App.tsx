@@ -18,6 +18,7 @@ import { ConsolidationOverlay } from './components/ConsolidationOverlay';
 import { SettingsModal, type SettingsTabType } from './components/SettingsModal';
 import { CommandPaletteModal } from './components/CommandPaletteModal';
 import { MemoryProfileModal } from './components/MemoryProfileModal';
+import { StudyModal } from './components/StudyModal';
 import { soundSynth } from './audio/synth';
 import { speechController } from './audio/speech';
 
@@ -44,6 +45,7 @@ export function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isCommandsOpen, setIsCommandsOpen] = useState<boolean>(false);
   const [isMemoryProfileOpen, setIsMemoryProfileOpen] = useState<boolean>(false);
+  const [isStudyOpen, setIsStudyOpen] = useState<boolean>(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTabType>('jarvis_voz');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
@@ -92,10 +94,38 @@ export function App() {
     }, 3000);
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+        if (e.key === 'Escape') {
+          target.blur();
+        }
+        return;
+      }
+
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         soundSynth.playTelemetryBeep();
         setIsCommandsOpen(prev => !prev);
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') {
+        e.preventDefault();
+        soundSynth.playTelemetryBeep();
+        setIsStudyOpen(prev => !prev);
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'm') {
+        e.preventDefault();
+        soundSynth.playTelemetryBeep();
+        setIsMemoryProfileOpen(prev => !prev);
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        executeOptimizationFlow();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        executeBriefingFlow();
+      } else if (e.key === 'Escape') {
+        setIsCommandsOpen(false);
+        setIsStudyOpen(false);
+        setIsSettingsOpen(false);
+        setIsMemoryProfileOpen(false);
+        setSelectedDockCard(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -309,6 +339,12 @@ export function App() {
       await speechController.speak("Módulo de memória contínua e perfil do usuário aberto no console.");
       return;
     }
+    if (cmd.includes('estudo') || cmd.includes('estudos') || cmd.includes('modo prova') || cmd.includes('semana de prova') || cmd.includes('minhas provas') || cmd.includes('pomodoro') || cmd.includes('foco nos estudos')) {
+      soundSynth.playTelemetryBeep();
+      setIsStudyOpen(true);
+      await speechController.speak("Central de estudos e foco tático ativada, Comandante. O temporizador e frequências de concentração estão prontos.");
+      return;
+    }
 
     // Custom or free query via brain
     setIsProcessing(true);
@@ -367,6 +403,10 @@ export function App() {
           soundSynth.playTelemetryBeep();
           setIsMemoryProfileOpen(true);
         }}
+        onOpenStudy={() => {
+          soundSynth.playTelemetryBeep();
+          setIsStudyOpen(true);
+        }}
       />
 
       {/* Main HUD Body */}
@@ -404,6 +444,7 @@ export function App() {
                       onNext={() => {
                         speechController.stop();
                       }}
+                      onOpenStudy={() => setIsStudyOpen(true)}
                     />
                   </div>
                 )}
@@ -414,6 +455,7 @@ export function App() {
                       card={selectedDockCard}
                       isSpeaking={false}
                       onNext={() => setSelectedDockCard(null)}
+                      onOpenStudy={() => setIsStudyOpen(true)}
                     />
                   </div>
                 )}
@@ -469,6 +511,12 @@ export function App() {
       <MemoryProfileModal
         isOpen={isMemoryProfileOpen}
         onClose={() => setIsMemoryProfileOpen(false)}
+      />
+
+      {/* Central de Estudos & Semana de Provas (Ctrl+E) */}
+      <StudyModal
+        isOpen={isStudyOpen}
+        onClose={() => setIsStudyOpen(false)}
       />
     </div>
   );

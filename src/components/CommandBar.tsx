@@ -15,7 +15,8 @@ import {
   Calculator,
   Briefcase,
   FolderOpen,
-  Brain
+  Brain,
+  GraduationCap
 } from 'lucide-react';
 import { soundSynth } from '../audio/synth';
 
@@ -124,6 +125,7 @@ export const CommandBar: React.FC<CommandBarProps> = ({
   };
 
   const quickPills = [
+    { label: 'Helena, iniciar modo de estudos', shortLabel: 'Modo Estudos', icon: <GraduationCap className="w-3 h-3 text-emerald-400" /> },
     { label: 'Helena, bom dia', shortLabel: 'Briefing', icon: <Sparkles className="w-3 h-3 text-cyan-400" /> },
     { label: 'Helena, otimizar computador', shortLabel: 'Otimizar PC', icon: <Zap className="w-3 h-3 text-amber-400" /> },
     { label: 'Helena, modo de trabalho', shortLabel: 'Modo Trabalho', icon: <Briefcase className="w-3 h-3 text-cyan-400" /> },
