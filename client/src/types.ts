@@ -294,7 +294,9 @@ export interface HelenaCard {
     | 'organizador_arquivos'
     | 'memoria_longa'
     | 'modo_estudo'
-    | 'dicas_estudo';
+    | 'dicas_estudo'
+    | 'briefing_unificado'
+    | 'otimizacao_unificada';
   subtitulo: string;
   fala: string;
   metricas?: Array<{ label: string; valor: string; detalhe?: string }>;
@@ -333,6 +335,22 @@ export interface HelenaCard {
     explicacao: string;
     passos: string[];
     recomendacao: string;
+  };
+  briefingUnificado?: {
+    usuario: string;
+    biometriaStatus: string;
+    padraoMemoria: string;
+    metricasHardware: Array<{ label: string; valor: string; detalhe?: string }>;
+    agenda: any[];
+    prioridades: any[];
+    clima?: any;
+  };
+  otimizacaoUnificada?: {
+    espacoLiberadoMB: number;
+    arquivosRemovidos: number;
+    dnsLimpo: boolean;
+    planoEnergia: string;
+    processos: Array<{ name: string; pid: number; memoryMB: number }>;
   };
 }
 

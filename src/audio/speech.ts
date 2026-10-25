@@ -52,6 +52,7 @@ class SpeechController {
   private analyserNode: AnalyserNode | null = null;
   private dataArray: Uint8Array | null = null;
   private speakingListeners: Array<(speaking: boolean) => void> = [];
+  private currentResolve: (() => void) | null = null;
   public isSpeaking: boolean = false;
   public enabled: boolean = true;
 
@@ -177,6 +178,11 @@ class SpeechController {
       } catch (_) {}
     }
     this.setSpeaking(false);
+    if (this.currentResolve) {
+      const res = this.currentResolve;
+      this.currentResolve = null;
+      res();
+    }
   }
 
   // Connect audio output to AnalyserNode & DSP
@@ -264,6 +270,7 @@ class SpeechController {
         const audioUrl = URL.createObjectURL(audioBlob);
 
         return new Promise<void>((resolve) => {
+          this.currentResolve = resolve;
           const audio = new Audio(audioUrl);
           this.currentAudio = audio;
 
@@ -273,6 +280,9 @@ class SpeechController {
             URL.revokeObjectURL(audioUrl);
             this.currentAudio = null;
             this.setSpeaking(false);
+            if (this.currentResolve === resolve) {
+              this.currentResolve = null;
+            }
             resolve();
           };
 
@@ -297,11 +307,15 @@ class SpeechController {
 
   private fallbackBrowserSpeech(cleanText: string): Promise<void> {
     return new Promise((resolve) => {
+      this.currentResolve = resolve;
       if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
         setTimeout(() => {
           this.setSpeaking(false);
+          if (this.currentResolve === resolve) {
+            this.currentResolve = null;
+          }
           resolve();
-        }, Math.max(1500, cleanText.length * 50));
+        }, Math.max(500, Math.min(cleanText.length * 20, 1500)));
         return;
       }
 
@@ -348,6 +362,9 @@ class SpeechController {
         if (!hasEnded) {
           hasEnded = true;
           this.setSpeaking(false);
+          if (this.currentResolve === resolve) {
+            this.currentResolve = null;
+          }
           resolve();
         }
       };
@@ -356,7 +373,7 @@ class SpeechController {
       utterance.onend = finish;
       utterance.onerror = finish;
 
-      const safetyTimer = setTimeout(finish, Math.max(2500, cleanText.length * 80));
+      const safetyTimer = setTimeout(finish, Math.max(1200, Math.min(cleanText.length * 30, 4000)));
       try {
         synth.speak(utterance);
       } catch (_) {

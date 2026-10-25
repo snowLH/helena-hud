@@ -121,11 +121,15 @@ export function App() {
         e.preventDefault();
         executeBriefingFlow();
       } else if (e.key === 'Escape') {
+        speechController.stop();
+        activeFlowRef.current = false;
+        setIsProcessing(false);
+        setCurrentCard(null);
+        setSelectedDockCard(null);
         setIsCommandsOpen(false);
         setIsStudyOpen(false);
         setIsSettingsOpen(false);
         setIsMemoryProfileOpen(false);
-        setSelectedDockCard(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -160,85 +164,50 @@ export function App() {
   };
 
   // -------------------------------------------------------------
-  // FLOW A: "Helena, bom dia" (Briefing Matinal Completo)
+  // FLOW A: "Helena, bom dia" (Briefing Matinal Completo em Tela Única)
   // -------------------------------------------------------------
   const executeBriefingFlow = async () => {
-    if (activeFlowRef.current) return;
+    speechController.stop();
     activeFlowRef.current = true;
     setIsProcessing(true);
     setBriefingOn(true);
-    setBiometricConfirmed(false);
-    setConsolidated(false);
     setSelectedDockCard(null);
 
     soundSynth.playTransitionPulse();
+    soundSynth.playBiometricScan();
 
     try {
-      // 1. Consult brain for tailored speech & cards
+      setHelenaState('BIOMETRIA');
       const brainRes = await fetch('/api/helena/brain', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command: 'Helena, bom dia' })
       });
-      const brainData = await brainRes.json();
-
-      // 2. Stage: Biometria Facial
-      setHelenaState('BIOMETRIA');
-      setBiometricActive(true);
-      await speechController.speak(
-        brainData.biometria?.fala || "Bom dia. Iniciando reconhecimento de usuário."
-      );
-
-      // Wait a moment for scanner confirmation chime
-      await new Promise((r) => setTimeout(r, 1200));
+      const data = await brainRes.json();
       setBiometricConfirmed(true);
-      setBiometricActive(false);
-
-      // 3. Stage: Consolidação de Heurísticas
-      setHelenaState('PROCESSANDO');
-      setConsolidationActive(true);
-      await speechController.speak(
-        brainData.consolidacao?.fala || "Sincronizando heurísticas locais. Os dados do sistema estão consolidados."
-      );
-
-      // Wait for consolidation animation to finalize
-      await new Promise((r) => setTimeout(r, 2800));
-      setConsolidationActive(false);
       setConsolidated(true);
-
-      // 4. Sequential Cards (Center Focus -> Dock)
-      const cards: HelenaCard[] = brainData.cartoes || [];
-      for (let i = 0; i < cards.length; i++) {
-        const card = cards[i];
-        setCurrentCard(card);
-        setHelenaState('FALANDO');
-        soundSynth.playTelemetryBeep(1.0 + i * 0.15);
-
-        await speechController.speak(card.fala);
-        await new Promise((r) => setTimeout(r, 600));
-
-        // Slide smoothly to dock
-        pushCardToDock(card);
-        setCurrentCard(null);
-        await new Promise((r) => setTimeout(r, 350));
-      }
-
       soundSynth.playBiometricConfirmed();
+
+      if (data.cartoes && data.cartoes.length > 0) {
+        const unifiedBriefingCard = data.cartoes[0];
+        setCurrentCard(unifiedBriefingCard);
+        setHelenaState('FALANDO');
+        await speechController.speak(unifiedBriefingCard.fala);
+      }
     } catch (err) {
       console.error('Erro no fluxo de briefing:', err);
     } finally {
       activeFlowRef.current = false;
       setIsProcessing(false);
       setHelenaState('EM ESPERA');
-      setCurrentCard(null);
     }
   };
 
   // -------------------------------------------------------------
-  // FLOW B: "Helena, otimizar computador" (Habilidade de Limpeza Real)
+  // FLOW B: "Helena, otimizar computador" (Tela Única de Otimização)
   // -------------------------------------------------------------
   const executeOptimizationFlow = async () => {
-    if (activeFlowRef.current) return;
+    speechController.stop();
     activeFlowRef.current = true;
     setIsProcessing(true);
     setSelectedDockCard(null);
@@ -247,82 +216,31 @@ export function App() {
     setHelenaState('FALANDO');
 
     try {
-      // 1. Brain query for flow structure
       const brainRes = await fetch('/api/helena/brain', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command: 'Helena, otimizar computador' })
       });
-      const brainData = await brainRes.json();
+      const data = await brainRes.json();
 
-      // Intro
-      await speechController.speak(
-        brainData.intro?.fala || "Protocolo de otimização ativado. Executando bateria diagnóstica e limpeza do sistema."
-      );
-
-      // Card 1: Análise de Hardware
-      const cardAnalise = brainData.cartoes[0];
-      if (cardAnalise) {
-        setCurrentCard(cardAnalise);
-        soundSynth.playTelemetryBeep();
-        await speechController.speak(cardAnalise.fala);
-        await new Promise((r) => setTimeout(r, 500));
-        pushCardToDock(cardAnalise);
-        setCurrentCard(null);
-        await new Promise((r) => setTimeout(r, 300));
+      if (data.cartoes && data.cartoes.length > 0) {
+        const unifiedOptCard = data.cartoes[0];
+        setCurrentCard(unifiedOptCard);
+        soundSynth.playBiometricConfirmed();
+        await speechController.speak(unifiedOptCard.fala);
+        await fetchTelemetry();
       }
-
-      // Card 2: Executar Real POST /api/system/optimize
-      const optRes = await fetch('/api/system/optimize', { method: 'POST' });
-      const optData: OptimizationReport = await optRes.json();
-
-      soundSynth.playOptimizationSurge();
-      const cardCache: HelenaCard = {
-        id: 'card-cache-clean',
-        titulo: 'Limpeza de Cache e Temp',
-        tipo: 'limpeza_temp',
-        subtitulo: 'Expurgo executado em %TEMP%',
-        fala: `Limpeza executada com sucesso. ${optData.etapas[0]?.arquivosRemovidos || 0} arquivos temporários purgados, liberando ${optData.etapas[0]?.espacoLiberadoMB || 0} Megabytes de armazenamento.`,
-        resultadoOtimizacao: optData
-      };
-
-      setCurrentCard(cardCache);
-      await speechController.speak(cardCache.fala);
-      await new Promise((r) => setTimeout(r, 500));
-      pushCardToDock(cardCache);
-      setCurrentCard(null);
-      await new Promise((r) => setTimeout(r, 300));
-
-      // Card 3: Rede e Memória
-      const cardRede: HelenaCard = {
-        id: 'card-rede-perf',
-        titulo: 'Rede, Memória e Desempenho',
-        tipo: 'rede_memoria',
-        subtitulo: 'Ajuste de perfil energético e DNS',
-        fala: `Tabelas de DNS purgadas, processos reorganizados e plano de Alto Desempenho do Windows fixado como ativo.`
-      };
-
-      setCurrentCard(cardRede);
-      soundSynth.playTelemetryBeep(1.3);
-      await speechController.speak(cardRede.fala);
-      await new Promise((r) => setTimeout(r, 500));
-      pushCardToDock(cardRede);
-      setCurrentCard(null);
-
-      soundSynth.playBiometricConfirmed();
-      await fetchTelemetry(); // refresh stats
     } catch (err) {
       console.error('Erro na otimização:', err);
     } finally {
       activeFlowRef.current = false;
       setIsProcessing(false);
       setHelenaState('EM ESPERA');
-      setCurrentCard(null);
     }
   };
 
   // -------------------------------------------------------------
-  // Generic / Custom Command Dispatcher
+  // Generic / Custom Command Dispatcher (Tela Única Frontal)
   // -------------------------------------------------------------
   const handleExecuteCommand = async (command: string) => {
     const cmd = command.toLowerCase().trim();
@@ -346,7 +264,7 @@ export function App() {
       return;
     }
 
-    // Custom or free query via brain
+    // Custom or free query via brain - APRESENTA APENAS UMA TELA NA FRENTE
     setIsProcessing(true);
     soundSynth.playTelemetryBeep();
 
@@ -359,16 +277,11 @@ export function App() {
       const data = await brainRes.json();
 
       if (data.cartoes && data.cartoes.length > 0) {
-        for (let i = 0; i < data.cartoes.length; i++) {
-          const card = data.cartoes[i];
-          setCurrentCard(card);
-          setHelenaState('FALANDO');
-          await speechController.speak(card.fala);
-          await new Promise((r) => setTimeout(r, 600));
-          pushCardToDock(card);
-          setCurrentCard(null);
-          await new Promise((r) => setTimeout(r, 300));
-        }
+        // Exibe UMA tela frontal consolidada sem avançar cards
+        const singleCard = data.cartoes[0];
+        setCurrentCard(singleCard);
+        setHelenaState('FALANDO');
+        await speechController.speak(singleCard.fala);
 
         if (data.intent === 'repair' || data.intent === 'otimizar') {
           await fetchTelemetry();
@@ -441,10 +354,17 @@ export function App() {
                     <CardFocus
                       card={currentCard}
                       isSpeaking={isSpeaking}
-                      onNext={() => {
+                      onClose={() => {
                         speechController.stop();
+                        activeFlowRef.current = false;
+                        setIsProcessing(false);
+                        setCurrentCard(null);
+                      }}
+                      onPinToDock={() => {
+                        pushCardToDock(currentCard);
                       }}
                       onOpenStudy={() => setIsStudyOpen(true)}
+                      onReplaySpeech={(text) => speechController.speak(text)}
                     />
                   </div>
                 )}
@@ -454,8 +374,9 @@ export function App() {
                     <CardFocus
                       card={selectedDockCard}
                       isSpeaking={false}
-                      onNext={() => setSelectedDockCard(null)}
+                      onClose={() => setSelectedDockCard(null)}
                       onOpenStudy={() => setIsStudyOpen(true)}
+                      onReplaySpeech={(text) => speechController.speak(text)}
                     />
                   </div>
                 )}
@@ -482,6 +403,7 @@ export function App() {
           onSelectCard={(card) => {
             setSelectedDockCard(card);
           }}
+          onClearDock={() => setDockCards([])}
           activeCardId={selectedDockCard?.id || currentCard?.id}
         />
 

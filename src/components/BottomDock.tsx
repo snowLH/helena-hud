@@ -24,18 +24,24 @@ import { soundSynth } from '../audio/synth';
 interface BottomDockProps {
   cards: HelenaCard[];
   onSelectCard: (card: HelenaCard) => void;
+  onClearDock?: () => void;
   activeCardId?: string;
 }
 
 export const BottomDock: React.FC<BottomDockProps> = ({
   cards,
   onSelectCard,
+  onClearDock,
   activeCardId
 }) => {
   if (cards.length === 0) return null;
 
   const getCardIcon = (tipo: HelenaCard['tipo']) => {
     switch (tipo) {
+      case 'briefing_unificado':
+        return <Sparkles className="w-3.5 h-3.5 text-cyan-400" />;
+      case 'otimizacao_unificada':
+        return <Zap className="w-3.5 h-3.5 text-amber-400" />;
       case 'hardware_network':
       case 'analise_hardware':
         return <Cpu className="w-3.5 h-3.5 text-cyan-400" />;
@@ -74,9 +80,23 @@ export const BottomDock: React.FC<BottomDockProps> = ({
   return (
     <div className="w-full flex flex-col items-center z-20 pointer-events-auto select-none mt-2">
       {/* Dock Header Tag */}
-      <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-t-lg bg-slate-950/80 border-t border-x border-purple-500/30 text-[9px] font-mono text-cyan-300 tracking-widest uppercase">
-        <Layers className="w-3 h-3 text-cyan-400" />
-        <span>DOCK CONSOLIDADO // {cards.length} CARTÕES ARQUIVADOS</span>
+      <div className="flex items-center justify-between w-full max-w-xl px-3 py-0.5 rounded-t-lg bg-slate-950/80 border-t border-x border-purple-500/30 text-[9px] font-mono text-cyan-300 tracking-widest uppercase">
+        <div className="flex items-center gap-1.5">
+          <Layers className="w-3 h-3 text-cyan-400" />
+          <span>HISTÓRICO RECENTE // {cards.length} {cards.length === 1 ? 'CONSULTA' : 'CONSULTAS'}</span>
+        </div>
+
+        {onClearDock && (
+          <button
+            onClick={() => {
+              soundSynth.playTelemetryBeep(0.8);
+              onClearDock();
+            }}
+            className="text-[9px] text-purple-400 hover:text-rose-300 transition-colors uppercase cursor-pointer"
+          >
+            Limpar
+          </button>
+        )}
       </div>
 
       {/* Horizontal Cards Bar */}
