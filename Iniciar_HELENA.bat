@@ -36,6 +36,18 @@ if not exist "%~dp0dist\" (
     echo.
 )
 
+REM 2.5. Iniciar llama-server local se executavel e modelo .gguf estiverem no pen drive
+if exist "%~dp0runtime\llama\llama-server.exe" (
+    if exist "%~dp0runtime\llama\*.gguf" (
+        echo [*] Motor Hermes-3 .GGUF detectado. Iniciando llama-server em 127.0.0.1:8080...
+        for %%f in ("%~dp0runtime\llama\*.gguf") do (
+            start "HELENA_LLAMA_ENGINE" /min "%~dp0runtime\llama\llama-server.exe" -m "%%f" --port 8080 -c 2048
+            goto llama_iniciado
+        )
+    )
+)
+:llama_iniciado
+
 REM 3. Iniciar Servidor Backend Local na porta 3000
 echo [2/3] Iniciando servidor Express local na porta 3000...
 start "HELENA_CORE_SERVER" /min cmd /c "node server.js"

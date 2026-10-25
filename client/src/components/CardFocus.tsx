@@ -368,23 +368,28 @@ export const CardFocus: React.FC<CardFocusProps> = ({ card, isSpeaking, onNext }
         )}
 
         {/* 10. Heavy Processes */}
-        {card.tipo === 'processos_pesados' && card.processos && (
-          <div className="space-y-2">
-            {card.processos.map((proc, idx) => (
-              <div
-                key={idx}
-                className="p-2 rounded border border-purple-500/30 bg-slate-900/60 flex items-center justify-between"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded bg-purple-950 flex items-center justify-center text-[10px] text-cyan-400 font-bold">
-                    {idx + 1}
-                  </span>
-                  <span className="text-slate-200 font-medium">{proc.name}</span>
-                  <span className="text-[9px] text-slate-500">PID: {proc.pid}</span>
+        {(card.tipo === 'processos_pesados' || card.tipo === 'analise_hardware') && card.processos && (
+          <div className="space-y-1.5 mt-2">
+            <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider block">
+              Top 5 Processos Consumidores de RAM:
+            </span>
+            <div className="space-y-1.5">
+              {card.processos.map((proc, idx) => (
+                <div
+                  key={idx}
+                  className="p-2 rounded border border-purple-500/30 bg-slate-900/60 flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded bg-purple-950 flex items-center justify-center text-[10px] text-cyan-400 font-bold">
+                      {idx + 1}
+                    </span>
+                    <span className="text-slate-200 font-medium">{proc.name}</span>
+                    <span className="text-[9px] text-slate-500">PID: {proc.pid}</span>
+                  </div>
+                  <span className="text-cyan-300 font-bold">{proc.memoryMB} MB</span>
                 </div>
-                <span className="text-cyan-300 font-bold">{proc.memoryMB} MB</span>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
 

@@ -1167,6 +1167,7 @@ app.post('/api/system/repair', async (req, res) => {
   }
 
   report.resumo = `Protocolo de reparo concluído com êxito. ${report.errosCorrigidos} subsistemas restaurados. Sistema operacional calibrado.`;
+  appendMemoria('reparo', `Suíte de reparo executada. ${report.errosCorrigidos} subsistemas restaurados (Rede, Explorer, WER, Spooler).`, 'Alta');
   res.json(report);
 });
 
@@ -1363,6 +1364,7 @@ app.get('/api/system/battery', (req, res) => {
 app.post('/api/system/benchmark', (req, res) => {
   try {
     const result = runSystemBenchmark();
+    appendMemoria('benchmark', `Benchmark realizado: Pontuação ${result.score}/1000 (${result.rating}). ${result.hashesPerSec} hashes/s.`, 'Média');
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: 'Falha ao executar benchmark', message: err.message });
@@ -2173,7 +2175,8 @@ app.post('/api/helena/brain', async (req, res) => {
             { label: "CPU Prévia", valor: `${cpuUsage}%` },
             { label: "RAM Prévia", valor: `${ramGB} GB (${ramPercent}%)` },
             { label: "Arquivos %TEMP%", valor: `${temp.fileCount} itens` }
-          ]
+          ],
+          processos: topProcesses
         },
         {
           id: "card-cache",
@@ -2317,6 +2320,38 @@ app.post('/api/tts', async (req, res) => {
     res.setHeader('Content-Type', 'audio/mpeg');
     res.setHeader('X-TTS-Source', 'Cache');
     return fs.createReadStream(cachedFilePath).pipe(res);
+  }
+
+  // 1.5. Síntese Neural Offline Nativa via piper.exe (Pen drive / runtime)
+  const piperExe = fs.existsSync(path.join(__dirname, 'runtime', 'piper', 'piper.exe'))
+    ? path.join(__dirname, 'runtime', 'piper', 'piper.exe')
+    : fs.existsSync(path.join(__dirname, 'piper.exe'))
+      ? path.join(__dirname, 'piper.exe')
+      : null;
+
+  if (piperExe) {
+    const piperDir = path.dirname(piperExe);
+    try {
+      const modelFiles = fs.readdirSync(piperDir).filter(f => f.endsWith('.onnx'));
+      if (modelFiles.length > 0) {
+        const modelPath = path.join(piperDir, modelFiles[0]);
+        const piperOutWav = path.join(os.tmpdir(), `helena_piper_${Date.now()}_${Math.random().toString(36).substring(7)}.wav`);
+        const pProc = exec(`"${piperExe}" --model "${modelPath}" --output_file "${piperOutWav}"`, { timeout: 4000 }, (pErr) => {
+          if (!pErr && fs.existsSync(piperOutWav)) {
+            try { fs.copyFileSync(piperOutWav, cachedFilePath); } catch (_) {}
+            res.setHeader('Content-Type', 'audio/wav');
+            res.setHeader('X-TTS-Source', 'Piper_Offline');
+            const stream = fs.createReadStream(piperOutWav);
+            stream.pipe(res);
+            stream.on('end', () => { try { fs.unlinkSync(piperOutWav); } catch (_) {} });
+            return;
+          }
+        });
+        pProc.stdin.write(cleanText, 'utf-8');
+        pProc.stdin.end();
+        return;
+      }
+    } catch (_) {}
   }
 
   // 2. Síntese Neural via Python edge_tts local (se Python disponível na máquina)
