@@ -13,7 +13,10 @@ import {
   Wrench,
   Power,
   Globe,
-  Rocket
+  Rocket,
+  Briefcase,
+  FolderOpen,
+  Brain
 } from 'lucide-react';
 import { soundSynth } from '../audio/synth';
 
@@ -51,6 +54,12 @@ export const BottomDock: React.FC<BottomDockProps> = ({
         return <Globe className="w-3.5 h-3.5 text-cyan-400" />;
       case 'app_launcher':
         return <Rocket className="w-3.5 h-3.5 text-amber-400" />;
+      case 'modo_trabalho':
+        return <Briefcase className="w-3.5 h-3.5 text-cyan-400" />;
+      case 'organizador_arquivos':
+        return <FolderOpen className="w-3.5 h-3.5 text-purple-400" />;
+      case 'memoria_longa':
+        return <Brain className="w-3.5 h-3.5 text-purple-300" />;
       case 'finalizacao':
         return <Sparkles className="w-3.5 h-3.5 text-cyan-300" />;
       default:

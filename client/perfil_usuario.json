@@ -1,0 +1,46 @@
+{
+  "usuario": {
+    "nome": "Operador",
+    "titulo": "Comandante",
+    "preferenciaVoz": "feminina",
+    "cidade": "São Paulo, SP"
+  },
+  "rotina": {
+    "horarioInicio": "08:30",
+    "focoPrincipal": "Desenvolvimento de Software e Engenharia de Sistemas",
+    "intervalos": "Pausas de 5 minutos a cada 60 minutos"
+  },
+  "projetosAtuais": [
+    {
+      "id": "prj-1",
+      "nome": "H.E.L.E.N.A. Core",
+      "descricao": "Assistente Autônoma 100% Local e Portátil",
+      "status": "Em Produção"
+    },
+    {
+      "id": "prj-2",
+      "nome": "Infraestrutura Local",
+      "descricao": "Ambientes e Automações de Alto Desempenho",
+      "status": "Ativo"
+    }
+  ],
+  "preferenciasPC": {
+    "modoEnergia": "Alto Desempenho",
+    "alertaRAM": 85,
+    "limpezaAutomaticaTemp": true,
+    "pastasMonitoradas": [
+      "Downloads",
+      "Documents"
+    ]
+  },
+  "modoTrabalho": {
+    "urls": [
+      "https://github.com",
+      "https://google.com"
+    ],
+    "aplicativos": [
+      "code",
+      "terminal"
+    ]
+  }
+}

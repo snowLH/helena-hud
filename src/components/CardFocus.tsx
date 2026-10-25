@@ -17,7 +17,11 @@ import {
   BatteryCharging,
   Calculator,
   Clock,
-  FileText
+  FileText,
+  Briefcase,
+  FolderOpen,
+  Brain,
+  Terminal
 } from 'lucide-react';
 
 interface CardFocusProps {
@@ -592,6 +596,163 @@ export const CardFocus: React.FC<CardFocusProps> = ({ card, isSpeaking, onNext }
                 </div>
               ))
             )}
+          </div>
+        )}
+
+        {/* 20. Modo de Trabalho */}
+        {card.tipo === 'modo_trabalho' && (
+          <div className="space-y-2.5">
+            <div className="p-3 rounded-lg border border-cyan-500/50 bg-cyan-950/30 flex items-center gap-3">
+              <Briefcase className="w-6 h-6 text-cyan-400 shrink-0" />
+              <div>
+                <span className="text-cyan-300 font-bold uppercase tracking-wider text-xs">
+                  AMBIENTE DE TRABALHO ATIVADO
+                </span>
+                <p className="text-[11px] text-slate-300">
+                  Navegador padrão e ferramentas de desenvolvimento carregados.
+                </p>
+              </div>
+            </div>
+
+            {card.modoTrabalho && (
+              <div className="p-3 rounded-lg border border-purple-500/30 bg-purple-950/30 space-y-2">
+                <span className="text-[10px] text-purple-300 font-bold tracking-wider uppercase block">
+                  URLs e Aplicações Iniciadas:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {card.modoTrabalho.urls.map((u, i) => (
+                    <a
+                      key={i}
+                      href={u}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-cyan-950/60 border border-cyan-400/40 text-[10px] text-cyan-200 hover:text-white hover:border-cyan-300 transition-colors"
+                    >
+                      <ExternalLink className="w-3 h-3 text-cyan-400" />
+                      <span>{u.replace('https://', '').replace('www.', '')}</span>
+                    </a>
+                  ))}
+                  {card.modoTrabalho.apps.map((app, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-purple-950/60 border border-purple-400/40 text-[10px] text-purple-200"
+                    >
+                      <Terminal className="w-3 h-3 text-purple-400" />
+                      <span>{app}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 21. Organizador de Arquivos Locais */}
+        {card.tipo === 'organizador_arquivos' && card.arquivosScan && (
+          <div className="space-y-2.5">
+            <div className="p-3 rounded-lg border border-cyan-500/50 bg-cyan-950/30 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <FolderOpen className="w-6 h-6 text-cyan-400 shrink-0" />
+                <div>
+                  <span className="text-cyan-300 font-bold uppercase tracking-wider text-xs">
+                    VARREDURA DE DOCUMENTOS
+                  </span>
+                  <p className="text-[11px] text-slate-300">
+                    {card.arquivosScan.totalFilesFound} arquivos mapeados em disco
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await fetch('/api/helena/tools/files/organize', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ folder: 'downloads' })
+                    });
+                    const d = await res.json();
+                    alert(d.message || 'Arquivos organizados com sucesso!');
+                  } catch (_) {
+                    alert('Erro ao organizar arquivos.');
+                  }
+                }}
+                className="px-2.5 py-1 rounded border border-cyan-400 bg-cyan-950/80 hover:bg-cyan-900 text-[10px] font-mono text-cyan-200 hover:text-white transition-all shadow-[0_0_10px_rgba(0,240,255,0.3)] cursor-pointer"
+              >
+                Organizar Pastas
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-[10px]">
+              <div className="p-2 rounded bg-purple-950/30 border border-purple-500/30">
+                <span className="text-slate-400 uppercase block">Downloads</span>
+                <span className="text-sm font-bold text-cyan-300">
+                  {card.arquivosScan.downloads?.totalFiles || 0} arquivos
+                </span>
+              </div>
+              <div className="p-2 rounded bg-purple-950/30 border border-purple-500/30">
+                <span className="text-slate-400 uppercase block">Documentos</span>
+                <span className="text-sm font-bold text-purple-300">
+                  {card.arquivosScan.documents?.totalFiles || 0} arquivos
+                </span>
+              </div>
+            </div>
+
+            {card.arquivosScan.downloads?.categories && (
+              <div className="p-2 rounded bg-slate-900/60 border border-purple-500/20 space-y-1">
+                <span className="text-[9px] text-purple-400 uppercase font-mono tracking-wider block">
+                  Categorias Identificadas em Downloads:
+                </span>
+                <div className="grid grid-cols-2 gap-1 text-[10px]">
+                  <div className="flex justify-between text-slate-300">
+                    <span>PDFs:</span>
+                    <span className="font-bold text-cyan-300">{card.arquivosScan.downloads.categories.pdf?.count || 0}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-300">
+                    <span>Imagens:</span>
+                    <span className="font-bold text-purple-300">{card.arquivosScan.downloads.categories.imagens?.count || 0}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-300">
+                    <span>Instaladores:</span>
+                    <span className="font-bold text-amber-300">{card.arquivosScan.downloads.categories.instaladores?.count || 0}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-300">
+                    <span>Textos/Planilhas:</span>
+                    <span className="font-bold text-emerald-300">{card.arquivosScan.downloads.categories.textos_planilhas?.count || 0}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 22. Memória de Longo Prazo Gravada */}
+        {card.tipo === 'memoria_longa' && card.memoriaGravada && (
+          <div className="space-y-2.5">
+            <div className="p-3 rounded-lg border border-purple-500/60 bg-purple-950/40 flex items-center gap-3 shadow-[0_0_15px_rgba(168,85,247,0.3)]">
+              <Brain className="w-6 h-6 text-purple-400 shrink-0 animate-pulse" />
+              <div>
+                <span className="text-purple-300 font-bold uppercase tracking-wider text-xs">
+                  MÓDULO DE MEMÓRIA LONGA (HONCHO)
+                </span>
+                <p className="text-[11px] text-slate-200 mt-0.5">
+                  Diretriz registrada com sucesso na memória contínua.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-lg border border-cyan-500/40 bg-slate-900/80 space-y-1.5">
+              <span className="text-[9px] text-cyan-400 font-mono tracking-widest uppercase">
+                CONTEÚDO REGISTRADO:
+              </span>
+              <p className="text-xs text-white font-mono leading-relaxed">
+                "{card.memoriaGravada.resumo}"
+              </p>
+              <div className="flex items-center justify-between pt-1 border-t border-purple-500/20 text-[9px] text-purple-300/80">
+                <span>Relevância: {card.memoriaGravada.relevancia || 'Alta'}</span>
+                <span>{new Date(card.memoriaGravada.data).toLocaleDateString('pt-BR')}</span>
+              </div>
+            </div>
           </div>
         )}
 

@@ -15,7 +15,10 @@ import {
   FileText,
   Terminal,
   Activity,
-  ArrowRight
+  ArrowRight,
+  Briefcase,
+  FolderOpen,
+  Brain
 } from 'lucide-react';
 import { soundSynth } from '../audio/synth';
 
@@ -54,6 +57,42 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         description: 'Purga arquivos temporários em %TEMP%, limpa cache DNS e ativa plano de Alto Desempenho.',
         icon: <Zap className="w-4 h-4 text-amber-400" />,
         badge: 'DESEMPENHO'
+      },
+      {
+        id: 'cmd-work-mode',
+        category: 'otimizacao',
+        command: 'Helena, iniciar modo de trabalho',
+        title: 'Iniciar Modo de Trabalho',
+        description: 'Abre automaticamente navegador e ferramentas favoritas configuradas no perfil do operador.',
+        icon: <Briefcase className="w-4 h-4 text-cyan-400" />,
+        badge: 'PRODUTIVIDADE'
+      },
+      {
+        id: 'cmd-files-organize',
+        category: 'sistema',
+        command: 'Helena, organizar meus arquivos',
+        title: 'Organizador de Arquivos Locais',
+        description: 'Varre Downloads e Documentos, categorizando PDFs, imagens, instaladores e planilhas.',
+        icon: <FolderOpen className="w-4 h-4 text-purple-400" />,
+        badge: 'ARQUIVOS'
+      },
+      {
+        id: 'cmd-memory-save',
+        category: 'sistema',
+        command: 'Helena, lembre-se que foco total hoje',
+        title: 'Gravar Memória Contínua (Honcho)',
+        description: 'Registra diretrizes, regras e fatos persistentes na memória de longo prazo da Helena.',
+        icon: <Brain className="w-4 h-4 text-purple-300" />,
+        badge: 'MEMÓRIA'
+      },
+      {
+        id: 'cmd-profile-view',
+        category: 'sistema',
+        command: 'Helena, ver memória e perfil',
+        title: 'Painel de Memória & Perfil',
+        description: 'Abre o console visual para inspecionar padrões aprendidos e editar preferências do usuário.',
+        icon: <Brain className="w-4 h-4 text-cyan-400" />,
+        badge: 'PERFIL'
       },
       {
         id: 'cmd-briefing',

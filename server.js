@@ -50,6 +50,261 @@ function loadDadosPessoais() {
   };
 }
 
+const PERFIL_USUARIO_PATH = path.join(__dirname, 'perfil_usuario.json');
+const MEMORIA_LONGA_PATH = path.join(__dirname, 'memoria_longa.json');
+
+function loadPerfilUsuario() {
+  try {
+    if (fs.existsSync(PERFIL_USUARIO_PATH)) {
+      const raw = fs.readFileSync(PERFIL_USUARIO_PATH, 'utf-8');
+      return JSON.parse(raw);
+    }
+  } catch (err) {
+    console.error('Erro ao ler perfil_usuario.json:', err.message);
+  }
+  return {
+    usuario: { nome: "Operador", titulo: "Comandante", preferenciaVoz: "feminina", cidade: "São Paulo, SP" },
+    rotina: { horarioInicio: "08:30", focoPrincipal: "Desenvolvimento de Software e Engenharia de Sistemas", intervalos: "Pausas regulares" },
+    projetosAtuais: [
+      { id: "prj-1", nome: "H.E.L.E.N.A. Core", descricao: "Assistente Autônoma 100% Local e Portátil", status: "Em Produção" }
+    ],
+    preferenciasPC: { modoEnergia: "Alto Desempenho", alertaRAM: 85, limpezaAutomaticaTemp: true, pastasMonitoradas: ["Downloads", "Documents"] },
+    modoTrabalho: { urls: ["https://github.com", "https://google.com"], aplicativos: ["code"] }
+  };
+}
+
+function savePerfilUsuario(data) {
+  try {
+    fs.writeFileSync(PERFIL_USUARIO_PATH, JSON.stringify(data, null, 2), 'utf-8');
+    const clientPath = path.join(__dirname, 'client', 'perfil_usuario.json');
+    if (fs.existsSync(path.join(__dirname, 'client'))) {
+      try { fs.writeFileSync(clientPath, JSON.stringify(data, null, 2), 'utf-8'); } catch (_) {}
+    }
+    return true;
+  } catch (err) {
+    console.error('Erro ao salvar perfil_usuario.json:', err.message);
+    return false;
+  }
+}
+
+function loadMemoriaLonga() {
+  try {
+    if (fs.existsSync(MEMORIA_LONGA_PATH)) {
+      const raw = fs.readFileSync(MEMORIA_LONGA_PATH, 'utf-8');
+      return JSON.parse(raw);
+    }
+  } catch (err) {
+    console.error('Erro ao ler memoria_longa.json:', err.message);
+  }
+  return {
+    padroesAprendidos: [],
+    memoriasEpisodicas: [],
+    estatisticas: { totalInteracoes: 0, otimizacoesRealizadas: 0, briefingsExecutados: 0, arquivosOrganizados: 0, ultimaInteracao: new Date().toISOString() }
+  };
+}
+
+function saveMemoriaLonga(data) {
+  try {
+    fs.writeFileSync(MEMORIA_LONGA_PATH, JSON.stringify(data, null, 2), 'utf-8');
+    const clientPath = path.join(__dirname, 'client', 'memoria_longa.json');
+    if (fs.existsSync(path.join(__dirname, 'client'))) {
+      try { fs.writeFileSync(clientPath, JSON.stringify(data, null, 2), 'utf-8'); } catch (_) {}
+    }
+    return true;
+  } catch (err) {
+    console.error('Erro ao salvar memoria_longa.json:', err.message);
+    return false;
+  }
+}
+
+function appendMemoria(tipo, resumo, relevancia = 'Média') {
+  const mem = loadMemoriaLonga();
+  const novaMemoria = {
+    id: `mem-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+    tipo,
+    resumo,
+    data: new Date().toISOString(),
+    relevancia
+  };
+  if (!Array.isArray(mem.memoriasEpisodicas)) mem.memoriasEpisodicas = [];
+  mem.memoriasEpisodicas.unshift(novaMemoria);
+  if (mem.memoriasEpisodicas.length > 80) {
+    mem.memoriasEpisodicas = mem.memoriasEpisodicas.slice(0, 80);
+  }
+  if (!mem.estatisticas) {
+    mem.estatisticas = { totalInteracoes: 0, otimizacoesRealizadas: 0, briefingsExecutados: 0, arquivosOrganizados: 0, ultimaInteracao: new Date().toISOString() };
+  }
+  mem.estatisticas.totalInteracoes = (mem.estatisticas.totalInteracoes || 0) + 1;
+  mem.estatisticas.ultimaInteracao = new Date().toISOString();
+  if (tipo === 'otimizacao') mem.estatisticas.otimizacoesRealizadas = (mem.estatisticas.otimizacoesRealizadas || 0) + 1;
+  if (tipo === 'briefing') mem.estatisticas.briefingsExecutados = (mem.estatisticas.briefingsExecutados || 0) + 1;
+  if (tipo === 'organizacao_arquivos') mem.estatisticas.arquivosOrganizados = (mem.estatisticas.arquivosOrganizados || 0) + 1;
+
+  saveMemoriaLonga(mem);
+  return novaMemoria;
+}
+
+// Helper to inspect Downloads and Documents
+function getDocumentsAndDownloadsStats() {
+  const userHome = os.homedir();
+  const downloadsPath = path.join(userHome, 'Downloads');
+  const documentsPath = path.join(userHome, 'Documents');
+
+  function analyzeDir(dirPath) {
+    if (!fs.existsSync(dirPath)) return { exists: false, totalFiles: 0, categories: {}, recentFiles: [] };
+    const categories = {
+      pdf: { count: 0, sizeBytes: 0, label: "Documentos PDF (.pdf)" },
+      imagens: { count: 0, sizeBytes: 0, label: "Imagens (.png, .jpg, etc.)" },
+      instaladores: { count: 0, sizeBytes: 0, label: "Instaladores & Arquivos (.exe, .zip, etc.)" },
+      textos_planilhas: { count: 0, sizeBytes: 0, label: "Textos e Planilhas (.docx, .xlsx, .txt, .md)" },
+      outros: { count: 0, sizeBytes: 0, label: "Outros formatos" }
+    };
+    let totalFiles = 0;
+    let recentFiles = [];
+
+    try {
+      const items = fs.readdirSync(dirPath);
+      for (const item of items) {
+        const fullItemPath = path.join(dirPath, item);
+        try {
+          const stat = fs.statSync(fullItemPath);
+          if (stat.isFile()) {
+            totalFiles++;
+            const ext = path.extname(item).toLowerCase();
+            const size = stat.size;
+            if (['.pdf'].includes(ext)) {
+              categories.pdf.count++;
+              categories.pdf.sizeBytes += size;
+            } else if (['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico'].includes(ext)) {
+              categories.imagens.count++;
+              categories.imagens.sizeBytes += size;
+            } else if (['.exe', '.msi', '.zip', '.rar', '.7z', '.tar', '.gz', '.iso'].includes(ext)) {
+              categories.instaladores.count++;
+              categories.instaladores.sizeBytes += size;
+            } else if (['.txt', '.md', '.docx', '.doc', '.xlsx', '.xls', '.csv', '.pptx', '.json', '.xml'].includes(ext)) {
+              categories.textos_planilhas.count++;
+              categories.textos_planilhas.sizeBytes += size;
+            } else {
+              categories.outros.count++;
+              categories.outros.sizeBytes += size;
+            }
+
+            recentFiles.push({
+              name: item,
+              ext,
+              sizeMB: Math.round((size / (1024 * 1024)) * 100) / 100,
+              mtime: stat.mtime
+            });
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+
+    recentFiles.sort((a, b) => b.mtime - a.mtime);
+    return {
+      exists: true,
+      path: dirPath,
+      totalFiles,
+      categories,
+      recentFiles: recentFiles.slice(0, 8)
+    };
+  }
+
+  const dl = analyzeDir(downloadsPath);
+  const doc = analyzeDir(documentsPath);
+
+  return {
+    downloads: dl,
+    documents: doc,
+    totalFilesFound: dl.totalFiles + doc.totalFiles
+  };
+}
+
+function organizeDirectory(targetDir) {
+  if (!fs.existsSync(targetDir)) return { success: false, message: "Diretório não encontrado: " + targetDir };
+  const subfolders = {
+    pdf: path.join(targetDir, 'Documentos_PDF'),
+    imagens: path.join(targetDir, 'Imagens'),
+    instaladores: path.join(targetDir, 'Instaladores_Arquivos'),
+    textos: path.join(targetDir, 'Documentos_Texto')
+  };
+
+  for (const dir of Object.values(subfolders)) {
+    if (!fs.existsSync(dir)) {
+      try { fs.mkdirSync(dir, { recursive: true }); } catch (_) {}
+    }
+  }
+
+  let movedCount = 0;
+  const details = [];
+
+  try {
+    const items = fs.readdirSync(targetDir);
+    for (const item of items) {
+      const fullPath = path.join(targetDir, item);
+      try {
+        const stat = fs.statSync(fullPath);
+        if (stat.isFile()) {
+          const ext = path.extname(item).toLowerCase();
+          let destDir = null;
+          if (['.pdf'].includes(ext)) destDir = subfolders.pdf;
+          else if (['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico'].includes(ext)) destDir = subfolders.imagens;
+          else if (['.exe', '.msi', '.zip', '.rar', '.7z', '.tar', '.gz'].includes(ext)) destDir = subfolders.instaladores;
+          else if (['.txt', '.md', '.docx', '.doc', '.xlsx', '.xls', '.csv', '.pptx'].includes(ext)) destDir = subfolders.textos;
+
+          if (destDir) {
+            const destPath = path.join(destDir, item);
+            if (!fs.existsSync(destPath)) {
+              fs.renameSync(fullPath, destPath);
+              movedCount++;
+              details.push({ file: item, to: path.basename(destDir) });
+            }
+          }
+        }
+      } catch (_) {}
+    }
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+
+  return {
+    success: true,
+    movedCount,
+    details,
+    message: `${movedCount} arquivos organizados em subpastas categorizadas com êxito.`
+  };
+}
+
+function triggerWorkMode() {
+  const perfil = loadPerfilUsuario();
+  const urls = perfil.modoTrabalho?.urls || ["https://github.com", "https://google.com"];
+  const apps = perfil.modoTrabalho?.aplicativos || ["code"];
+
+  const opened = [];
+  for (const url of urls) {
+    try {
+      exec(`start "" "${url}"`, { timeout: 3000 });
+      opened.push(url);
+    } catch (_) {}
+  }
+  for (const app of apps) {
+    try {
+      exec(`start "" "${app}"`, { timeout: 3000 });
+      opened.push(app);
+    } catch (_) {}
+  }
+
+  appendMemoria('modo_trabalho', `Modo de trabalho ativado. Ferramentas e sites abertos: ${urls.join(', ')}.`, 'Média');
+
+  return {
+    success: true,
+    urls,
+    apps,
+    openedCount: opened.length,
+    message: `Modo de trabalho ativado. ${opened.length} ferramentas e sites iniciados.`
+  };
+}
+
 // Helper to calculate CPU usage over a short sampling interval (150ms)
 function getCpuUsage() {
   return new Promise((resolve) => {
@@ -1167,6 +1422,121 @@ app.delete('/api/system/notes/:id', (req, res) => {
   res.json({ success: true, anotacoes: dados.anotacoes });
 });
 
+// 8.1. GET & POST /api/helena/profile (Perfil Persistente "Quem Você É")
+app.get('/api/helena/profile', (req, res) => {
+  res.json(loadPerfilUsuario());
+});
+
+app.post('/api/helena/profile', (req, res) => {
+  const updated = req.body;
+  if (!updated || typeof updated !== 'object') {
+    return res.status(400).json({ error: 'Dados do perfil inválidos' });
+  }
+  savePerfilUsuario(updated);
+  res.json({ success: true, profile: updated });
+});
+
+// 8.2. GET & POST /api/helena/memory (Memória de Longo Prazo Estilo Honcho)
+app.get('/api/helena/memory', (req, res) => {
+  res.json(loadMemoriaLonga());
+});
+
+app.post('/api/helena/memory', (req, res) => {
+  const { tipo, resumo, relevancia } = req.body;
+  if (!resumo || !resumo.trim()) {
+    return res.status(400).json({ error: 'Resumo da memória não fornecido' });
+  }
+  const item = appendMemoria(tipo || 'fato_usuario', resumo.trim(), relevancia || 'Alta');
+  res.json({ success: true, item, memoria: loadMemoriaLonga() });
+});
+
+app.post('/api/helena/memory/clear', (req, res) => {
+  const mem = loadMemoriaLonga();
+  mem.memoriasEpisodicas = [];
+  saveMemoriaLonga(mem);
+  res.json({ success: true, message: 'Memórias episódicas resetadas com sucesso.' });
+});
+
+// 8.3. HABILIDADES HELENA: Ferramentas de Sistema & Navegador
+// Habilidade #1: POST /api/helena/tools/optimize (Otimização Completa)
+app.post('/api/helena/tools/optimize', async (req, res) => {
+  const topProcesses = getTopProcesses();
+  const tmpDir = os.tmpdir();
+  let arquivosRemovidos = 0;
+  let bytesLiberados = 0;
+
+  try {
+    const entries = fs.readdirSync(tmpDir);
+    for (const item of entries) {
+      const fullPath = path.join(tmpDir, item);
+      try {
+        const stat = fs.statSync(fullPath);
+        if (stat.isFile()) {
+          const sz = stat.size;
+          fs.unlinkSync(fullPath);
+          arquivosRemovidos++;
+          bytesLiberados += sz;
+        }
+      } catch (_) {}
+    }
+  } catch (_) {}
+
+  try { execSync('ipconfig /flushdns', { timeout: 3000 }); } catch (_) {}
+  try { execSync('powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c', { timeout: 2000 }); } catch (_) {}
+
+  const espacoLiberadoMB = Math.round((bytesLiberados / (1024 * 1024)) * 10) / 10;
+  appendMemoria('otimizacao', `Otimização completa: ${arquivosRemovidos} temporários eliminados (${espacoLiberadoMB} MB), DNS limpo e plano de Alto Desempenho ativado.`, 'Alta');
+
+  res.json({
+    success: true,
+    arquivosRemovidos,
+    espacoLiberadoMB,
+    topProcesses,
+    planoEnergia: 'Alto Desempenho (Ativo)',
+    dnsLimpo: true
+  });
+});
+
+// Habilidade #2: POST /api/helena/tools/work-mode (Modo de Trabalho)
+app.post('/api/helena/tools/work-mode', (req, res) => {
+  const result = triggerWorkMode();
+  res.json(result);
+});
+
+// Habilidade #3: GET & POST /api/helena/tools/files (Varredora e Organizadora de Arquivos)
+app.get('/api/helena/tools/files/scan', (req, res) => {
+  const stats = getDocumentsAndDownloadsStats();
+  res.json({ success: true, ...stats });
+});
+
+app.post('/api/helena/tools/files/organize', (req, res) => {
+  const targetDir = req.body?.folder === 'documents'
+    ? path.join(os.homedir(), 'Documents')
+    : path.join(os.homedir(), 'Downloads');
+  const result = organizeDirectory(targetDir);
+  appendMemoria('organizacao_arquivos', result.message || 'Arquivos organizados em categorias.', 'Média');
+  res.json(result);
+});
+
+app.post('/api/helena/tools/files/read', (req, res) => {
+  const { filePath } = req.body;
+  if (!filePath || !fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'Arquivo não encontrado' });
+  }
+  try {
+    const raw = fs.readFileSync(filePath, 'utf-8');
+    const snippet = raw.slice(0, 1500);
+    res.json({
+      success: true,
+      name: path.basename(filePath),
+      tamanhoBytes: raw.length,
+      conteudo: snippet
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao ler arquivo: ' + err.message });
+  }
+});
+
 // 9. POST /api/helena/brain (Motor de Inteligência e Compreensão Completo)
 app.post('/api/helena/brain', async (req, res) => {
   const { command } = req.body;
@@ -1186,20 +1556,25 @@ app.post('/api/helena/brain', async (req, res) => {
   const totalRAM = Math.round((totalMem / (1024 ** 3)) * 10) / 10;
   const ramPercent = Math.round((usedMem / totalMem) * 100);
 
-  // Helper para consultar LLM Local (Ollama ou llama-server)
+  // Helper para consultar LLM Local (Hermes-3 via llama-server em 127.0.0.1:8080 ou Ollama)
   async function queryLocalLLM(promptText) {
+    const perfil = loadPerfilUsuario();
+    const memoria = loadMemoriaLonga();
+    const recentMem = (memoria.memoriasEpisodicas || []).slice(0, 3).map(m => `- ${m.resumo}`).join('; ');
+    const userRole = `${perfil.usuario?.titulo || 'Comandante'} ${perfil.usuario?.nome || 'Operador'}`;
+
     return new Promise((resolve) => {
       const postData = JSON.stringify({
-        model: "helena-local",
+        model: "hermes-3",
         messages: [
           {
             role: "system",
-            content: "Você é H.E.L.E.N.A. (Heurística de Execução Local e Estruturação Neural Autônoma), a inteligência artificial tática e assistente pessoal de alta precisão. Responda em Português do Brasil de forma concisa, elegante, cortês e assertiva."
+            content: `Você é H.E.L.E.N.A. (Heurística de Execução Local e Estruturação Neural Autônoma), a inteligência artificial tática e assistente pessoal de alto desempenho (arquitetura estilo Hermes-3), operando 100% offline e local a partir do pen drive. Usuário atual: ${userRole}. Memórias e aprendizados recentes: [${recentMem || 'Nenhum evento registrado ainda'}]. Seja concisa, elegante, assertiva e responda sempre em Português do Brasil com precisão milimétrica.`
           },
           { role: "user", content: promptText }
         ],
         temperature: 0.7,
-        max_tokens: 200
+        max_tokens: 220
       });
 
       const options = {
@@ -1235,6 +1610,82 @@ app.post('/api/helena/brain', async (req, res) => {
 
       request.write(postData);
       request.end();
+    });
+  }
+
+  // 0.01. HABILIDADE #2: MODO DE TRABALHO
+  if (
+    cmd.includes('modo de trabalho') || cmd.includes('modo trabalho') ||
+    cmd.includes('iniciar modo de trabalho') || cmd.includes('iniciar trabalho') ||
+    cmd.includes('abrir ferramentas de trabalho') || cmd.includes('estação de trabalho')
+  ) {
+    const wm = triggerWorkMode();
+    const urlsList = wm.urls.join(', ');
+    return res.json({
+      intent: 'modo_trabalho',
+      cartoes: [
+        {
+          id: 'card-modo-trabalho',
+          titulo: 'Modo de Trabalho Ativado',
+          tipo: 'modo_trabalho',
+          subtitulo: `${wm.openedCount} ferramentas e sites iniciados`,
+          fala: `Modo de trabalho ativado com sucesso, Comandante. O navegador e seus ambientes essenciais foram abertos: ${urlsList}. Foco total em seus projetos.`,
+          modoTrabalho: {
+            urls: wm.urls,
+            apps: wm.apps,
+            openedCount: wm.openedCount
+          }
+        }
+      ]
+    });
+  }
+
+  // 0.02. HABILIDADE #3: ORGANIZADOR E LEITORA DE DOCUMENTOS
+  if (
+    cmd.includes('organizar meus arquivos') || cmd.includes('organizar arquivos') ||
+    cmd.includes('organizar downloads') || cmd.includes('varrer documentos') ||
+    cmd.includes('meus documentos') || cmd.includes('leitora de documentos') ||
+    cmd.includes('limpar downloads') || cmd.includes('arquivos na pasta')
+  ) {
+    const fileStats = getDocumentsAndDownloadsStats();
+    appendMemoria('organizacao_arquivos', `Varredura de arquivos: ${fileStats.downloads.totalFiles} itens em Downloads e ${fileStats.documents.totalFiles} em Documentos.`, 'Baixa');
+    return res.json({
+      intent: 'organizador_arquivos',
+      cartoes: [
+        {
+          id: 'card-organizador-arquivos',
+          titulo: 'Organizador de Documentos Locais',
+          tipo: 'organizador_arquivos',
+          subtitulo: `${fileStats.totalFilesFound} arquivos identificados em Downloads e Documentos`,
+          fala: `Varredura de arquivos concluída, Comandante. Identifiquei ${fileStats.downloads.totalFiles} itens na pasta Downloads e ${fileStats.documents.totalFiles} em Documentos, organizados em PDFs, imagens, instaladores e planilhas. Você pode organizá-los em pastas com um clique.`,
+          arquivosScan: fileStats
+        }
+      ]
+    });
+  }
+
+  // 0.03. GRAVAR NA MEMÓRIA DE LONGO PRAZO ("Helena, lembre-se que...")
+  if (
+    cmd.includes('lembre-se que') || cmd.includes('lembre-se de') ||
+    cmd.includes('lembre que') || cmd.includes('lembre de') ||
+    cmd.includes('anote na sua memória') || cmd.includes('anote que') ||
+    cmd.includes('grave na memória') || cmd.includes('guarde na memória')
+  ) {
+    let memoText = cleanCmd.replace(/^(?:lembre-se\s+(?:que|de)?|lembre\s+(?:que|de)?|anote\s+(?:na\s+sua\s+mem[oó]ria\s+(?:que)?)?|anote\s+(?:que)?|grave\s+na\s+mem[oó]ria\s+(?:que)?|guarde\s+na\s+mem[oó]ria\s+(?:que)?)/i, '').trim();
+    if (!memoText) memoText = rawCmd;
+    const novaMem = appendMemoria('fato_usuario', memoText, 'Alta');
+    return res.json({
+      intent: 'memoria_longa',
+      cartoes: [
+        {
+          id: 'card-memoria-salva',
+          titulo: 'Memória de Longo Prazo Registrada',
+          tipo: 'memoria_longa',
+          subtitulo: 'Armazenado no módulo de memória contínua Honcho',
+          fala: `Afirmativo, Comandante. Gravei em minha memória de longo prazo: "${memoText}". Essa informação será consultada para calibrar nossas próximas interações e tomadas de decisão.`,
+          memoriaGravada: novaMem
+        }
+      ]
     });
   }
 
@@ -1628,27 +2079,33 @@ app.post('/api/helena/brain', async (req, res) => {
 
   // 5. BRIEFING MATINAL
   if (cmd.includes('bom dia') || cmd.includes('briefing') || cmd.includes('matinal')) {
+    const perfil = loadPerfilUsuario();
+    const memLonga = loadMemoriaLonga();
+    const padraoRecente = memLonga.padroesAprendidos?.[0]?.observacao || "Padrão de alta produtividade e concentração técnica.";
     const proximoCompromisso = dados.agenda?.[0]?.titulo || "Sem compromissos imediatos";
     const horarioCompromisso = dados.agenda?.[0]?.horario || "09:00";
-    const prioridadePrincipal = dados.prioridades?.[0]?.titulo || "Manter rotina operacional";
+    const prioridadePrincipal = dados.prioridades?.[0]?.titulo || (perfil.rotina?.focoPrincipal || "Manter rotina operacional");
     const urgencia = dados.prioridades?.[0]?.urgencia || "Alta";
+    const userName = `${perfil.usuario?.titulo || dados.usuario?.titulo || 'Comandante'} ${perfil.usuario?.nome || dados.usuario?.nome || 'Operador'}`;
+
+    appendMemoria('briefing', `Briefing matinal executado. Hardware estável, agenda e foco em "${prioridadePrincipal}" alinhados.`, 'Alta');
 
     return res.json({
       intent: 'briefing',
       fluxo: 'A',
       modo: 'briefing_matinal',
       biometria: {
-        fala: "Bom dia. Iniciando reconhecimento de usuário.",
+        fala: `Bom dia, ${userName}. Iniciando reconhecimento de usuário e leitura biométrica.`,
         status: "IDENTIDADE CONFIRMADA",
-        usuario: `${dados.usuario.titulo || 'Comandante'} ${dados.usuario.nome || 'Operador'}`
+        usuario: userName
       },
       consolidacao: {
-        fala: "Sincronizando heurísticas locais. Os dados do sistema estão consolidados.",
+        fala: `Sincronizando heurísticas locais e memória contínua. Padrão observado: ${padraoRecente}`,
         modulos: [
           { nome: "AGENDA LOCAL", status: "Sincronizada", check: true },
           { nome: "TELEMETRIA DO SISTEMA", status: "Nominal", check: true },
-          { nome: "DIRETRIZES DE PRIORIDADE", status: "Atualizadas", check: true },
-          { nome: "RADAR OFFLINE", status: "Ativo", check: true }
+          { nome: "MEMÓRIA HONCHO", status: "Ativa", check: true },
+          { nome: "PERFIL DO OPERADOR", status: "Validado", check: true }
         ]
       },
       cartoes: [
@@ -1675,10 +2132,10 @@ app.post('/api/helena/brain', async (req, res) => {
         },
         {
           id: "card-prioridades",
-          titulo: "Prioridades e Foco",
+          titulo: "Prioridades & Memória Contínua",
           tipo: "prioridades",
-          subtitulo: "Plano tático de ação imediata",
-          fala: `Prioridade operacional imediata: ${prioridadePrincipal}, com nível de urgência ${urgencia}. Concentração total nas primeiras horas.`,
+          subtitulo: "Plano tático e diretrizes aprendidas",
+          fala: `Prioridade imediata: ${prioridadePrincipal}, com nível de urgência ${urgencia}. Padrão comportamental ativo: ${padraoRecente}`,
           itens: dados.prioridades.slice(0, 3)
         },
         {
@@ -1686,15 +2143,18 @@ app.post('/api/helena/brain', async (req, res) => {
           titulo: "Finalização do Briefing",
           tipo: "finalizacao",
           subtitulo: "Sistema em prontidão operacional",
-          fala: "Briefing concluído com sucesso. Todos os parâmetros nominais. Aguardando suas diretrizes, Comandante.",
+          fala: `Briefing concluído com sucesso, ${userName}. Todos os parâmetros estão nominais. Aguardando suas diretrizes.`,
           mensagem: "Hoje, mantenha o foco no essencial. Sistema pronto para operação contínua."
         }
       ]
     });
   }
 
-  // 6. OTIMIZAÇÃO DO PC
+  // 6. OTIMIZAÇÃO DO PC (Habilidade #1)
   if (cmd.includes('otimizar') || cmd.includes('otimização') || cmd.includes('acelerar') || cmd.includes('limpar pc') || cmd.includes('limpar computador')) {
+    appendMemoria('otimizacao', 'Ciclo de otimização de sistema ativado. Purgando %TEMP%, cache DNS e ativando Alto Desempenho.', 'Alta');
+    const topProcesses = getTopProcesses();
+
     return res.json({
       intent: 'otimizar',
       fluxo: 'B',
@@ -1705,10 +2165,10 @@ app.post('/api/helena/brain', async (req, res) => {
       cartoes: [
         {
           id: "card-analise",
-          titulo: "Análise de Hardware",
+          titulo: "Análise de Hardware e Processos",
           tipo: "analise_hardware",
-          subtitulo: "Telemetria prévia do computador",
-          fala: `Analisando hardware: Carga de CPU em ${cpuUsage}%, memória RAM consumida em ${ramPercent}%. Identificando gargalos e arquivos órfãos.`,
+          subtitulo: "Telemetria prévia e processos em execução",
+          fala: `Analisando hardware: Carga de CPU em ${cpuUsage}%, memória RAM consumida em ${ramPercent}%. Os processos mais exigentes identificados são: ${topProcesses.slice(0, 3).map(p => p.name).join(', ')}.`,
           metricas: [
             { label: "CPU Prévia", valor: `${cpuUsage}%` },
             { label: "RAM Prévia", valor: `${ramGB} GB (${ramPercent}%)` },

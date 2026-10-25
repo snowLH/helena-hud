@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { HelenaState } from '../types';
 import { ShieldCheck, UserCheck, Camera } from 'lucide-react';
 import { soundSynth } from '../audio/synth';
+import { speechController } from '../audio/speech';
 
 interface EnergyOrbProps {
   state: HelenaState;
@@ -132,18 +133,19 @@ export const EnergyOrb: React.FC<EnergyOrbProps> = ({
 
       ctx.clearRect(0, 0, width, height);
 
-      // Dynamic activity multiplier
-      const isHighEnergy = isSpeaking || state === 'FALANDO';
-      const speedMultiplier = isHighEnergy ? 2.6 : 1.0;
-      const waveAmplitude = isHighEnergy ? 12 : 3;
+      // Dynamic activity multiplier & real-time Voice Analyser Lip-Sync
+      const voiceAmplitude = speechController.getAudioAmplitude();
+      const isHighEnergy = isSpeaking || state === 'FALANDO' || voiceAmplitude > 0.05;
+      const speedMultiplier = isHighEnergy ? (1.5 + voiceAmplitude * 3.5) : 1.0;
+      const waveAmplitude = isHighEnergy ? (8 + voiceAmplitude * 28) : 3;
 
       angle += 0.015 * speedMultiplier;
 
-      // 1. Draw Central Radial Glow
-      const glowRad = isHighEnergy ? 150 : 120;
+      // 1. Draw Central Radial Glow with Voice Modulation
+      const glowRad = isHighEnergy ? (130 + voiceAmplitude * 60) : 120;
       const gradient = ctx.createRadialGradient(cx, cy, 10, cx, cy, glowRad);
-      gradient.addColorStop(0, isHighEnergy ? 'rgba(0, 240, 255, 0.45)' : 'rgba(168, 85, 247, 0.25)');
-      gradient.addColorStop(0.5, isHighEnergy ? 'rgba(168, 85, 247, 0.2)' : 'rgba(0, 240, 255, 0.1)');
+      gradient.addColorStop(0, isHighEnergy ? `rgba(0, 240, 255, ${0.35 + voiceAmplitude * 0.45})` : 'rgba(168, 85, 247, 0.25)');
+      gradient.addColorStop(0.5, isHighEnergy ? `rgba(168, 85, 247, ${0.2 + voiceAmplitude * 0.3})` : 'rgba(0, 240, 255, 0.1)');
       gradient.addColorStop(1, 'rgba(11, 4, 16, 0)');
 
       ctx.save();
@@ -222,7 +224,7 @@ export const EnergyOrb: React.FC<EnergyOrbProps> = ({
           ctx.fillStyle = p.color;
           ctx.globalAlpha = alpha;
           ctx.shadowColor = p.color;
-          ctx.shadowBlur = isHighEnergy ? 8 : 4;
+          ctx.shadowBlur = isHighEnergy ? (8 + voiceAmplitude * 12) : 4;
           ctx.beginPath();
           ctx.arc(px, py, p.size * scale, 0, Math.PI * 2);
           ctx.fill();

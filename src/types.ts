@@ -199,6 +199,63 @@ export interface PersonalData {
   }>;
 }
 
+export interface UserProfile {
+  usuario: {
+    nome: string;
+    titulo: string;
+    preferenciaVoz: string;
+    cidade: string;
+  };
+  rotina: {
+    horarioInicio: string;
+    focoPrincipal: string;
+    intervalos: string;
+  };
+  projetosAtuais: Array<{
+    id: string;
+    nome: string;
+    descricao: string;
+    status: string;
+  }>;
+  preferenciasPC: {
+    modoEnergia: string;
+    alertaRAM: number;
+    limpezaAutomaticaTemp: boolean;
+    pastasMonitoradas: string[];
+  };
+  modoTrabalho: {
+    urls: string[];
+    aplicativos: string[];
+  };
+}
+
+export interface LearnedPattern {
+  padrao: string;
+  observacao: string;
+  confianca: number;
+  dataDetecao: string;
+}
+
+export interface EpisodicMemory {
+  id: string;
+  tipo: string;
+  resumo: string;
+  data: string;
+  relevancia: string;
+}
+
+export interface LongTermMemory {
+  padroesAprendidos: LearnedPattern[];
+  memoriasEpisodicas: EpisodicMemory[];
+  estatisticas: {
+    totalInteracoes: number;
+    otimizacoesRealizadas: number;
+    briefingsExecutados: number;
+    arquivosOrganizados: number;
+    ultimaInteracao: string;
+  };
+}
+
 export interface HelenaCard {
   id: string;
   titulo: string;
@@ -223,7 +280,10 @@ export interface HelenaCard {
     | 'calculo'
     | 'clima_dinamico'
     | 'timer'
-    | 'anotacoes';
+    | 'anotacoes'
+    | 'modo_trabalho'
+    | 'organizador_arquivos'
+    | 'memoria_longa';
   subtitulo: string;
   fala: string;
   metricas?: Array<{ label: string; valor: string; detalhe?: string }>;
@@ -246,6 +306,9 @@ export interface HelenaCard {
   appLancado?: string;
   motor?: string;
   texto?: string;
+  modoTrabalho?: { urls: string[]; apps: string[]; openedCount: number };
+  arquivosScan?: any;
+  memoriaGravada?: any;
 }
 
 export type HelenaState = 'EM ESPERA' | 'FALANDO' | 'PROCESSANDO' | 'BIOMETRIA';

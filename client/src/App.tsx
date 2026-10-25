@@ -17,6 +17,7 @@ import { CommandBar } from './components/CommandBar';
 import { ConsolidationOverlay } from './components/ConsolidationOverlay';
 import { SettingsModal, type SettingsTabType } from './components/SettingsModal';
 import { CommandPaletteModal } from './components/CommandPaletteModal';
+import { MemoryProfileModal } from './components/MemoryProfileModal';
 import { soundSynth } from './audio/synth';
 import { speechController } from './audio/speech';
 
@@ -42,6 +43,7 @@ export function App() {
   // UI Modals & Processing
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isCommandsOpen, setIsCommandsOpen] = useState<boolean>(false);
+  const [isMemoryProfileOpen, setIsMemoryProfileOpen] = useState<boolean>(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTabType>('jarvis_voz');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
@@ -301,6 +303,12 @@ export function App() {
     if (cmd.includes('otimizar') || cmd.includes('limpar pc') || cmd.includes('limpar computador')) {
       return executeOptimizationFlow();
     }
+    if (cmd.includes('abrir perfil') || cmd.includes('ver perfil') || cmd.includes('ver memória') || cmd.includes('abrir memória') || cmd.includes('memória e perfil')) {
+      soundSynth.playTelemetryBeep();
+      setIsMemoryProfileOpen(true);
+      await speechController.speak("Módulo de memória contínua e perfil do usuário aberto no console.");
+      return;
+    }
 
     // Custom or free query via brain
     setIsProcessing(true);
@@ -354,6 +362,10 @@ export function App() {
         onOpenCommands={() => {
           soundSynth.playTelemetryBeep();
           setIsCommandsOpen(true);
+        }}
+        onOpenMemoryProfile={() => {
+          soundSynth.playTelemetryBeep();
+          setIsMemoryProfileOpen(true);
         }}
       />
 
@@ -451,6 +463,12 @@ export function App() {
         isOpen={isCommandsOpen}
         onClose={() => setIsCommandsOpen(false)}
         onExecuteCommand={handleExecuteCommand}
+      />
+
+      {/* Persistent User Profile & Honcho Continuous Memory Modal */}
+      <MemoryProfileModal
+        isOpen={isMemoryProfileOpen}
+        onClose={() => setIsMemoryProfileOpen(false)}
       />
     </div>
   );

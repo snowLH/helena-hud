@@ -41,6 +41,8 @@ export const JARVIS_VOICE_PRESETS: JarvisVoicePreset[] = [
 class SpeechController {
   private currentAudio: HTMLAudioElement | null = null;
   private audioCtx: AudioContext | null = null;
+  private analyserNode: AnalyserNode | null = null;
+  private dataArray: Uint8Array | null = null;
   private speakingListeners: Array<(speaking: boolean) => void> = [];
   public isSpeaking: boolean = false;
   public enabled: boolean = true;
@@ -69,6 +71,45 @@ class SpeechController {
       const savedPitch = localStorage.getItem('helena_voice_pitch');
       if (savedPitch) this.customPitch = savedPitch;
     } catch (_) {}
+  }
+
+  private getAudioContext(): AudioContext | null {
+    if (typeof window === 'undefined') return null;
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return null;
+    if (!this.audioCtx) {
+      this.audioCtx = new AudioCtx();
+    }
+    if (this.audioCtx.state === 'suspended') {
+      this.audioCtx.resume();
+    }
+    if (!this.analyserNode && this.audioCtx) {
+      this.analyserNode = this.audioCtx.createAnalyser();
+      this.analyserNode.fftSize = 256;
+      this.analyserNode.smoothingTimeConstant = 0.8;
+      this.dataArray = new Uint8Array(this.analyserNode.frequencyBinCount);
+    }
+    return this.audioCtx;
+  }
+
+  public getAudioAmplitude(): number {
+    if (!this.isSpeaking) return 0;
+
+    if (this.analyserNode && this.dataArray && this.currentAudio && !this.currentAudio.paused) {
+      this.analyserNode.getByteFrequencyData(this.dataArray);
+      let sum = 0;
+      const bins = Math.min(64, this.dataArray.length);
+      for (let i = 0; i < bins; i++) {
+        sum += this.dataArray[i];
+      }
+      const avg = sum / bins;
+      return Math.min(1.0, Math.max(0.05, avg / 120));
+    }
+
+    // Simulated speech prosody modulation for SpeechSynthesis fallback
+    const t = Date.now();
+    const wave = Math.abs(Math.sin(t / 90) * Math.cos(t / 140) + 0.3 * Math.sin(t / 45));
+    return Math.min(1.0, Math.max(0.15, wave * 0.85));
   }
 
   public setCustomRate(rate: string) {
@@ -130,45 +171,44 @@ class SpeechController {
     this.setSpeaking(false);
   }
 
-  // Pure Studio Mastering DSP (sem metalizado ou eco distorcido)
+  // Connect audio output to AnalyserNode & DSP
   private setupStudioAudioDsp(audioElement: HTMLAudioElement) {
-    if (!this.holographicEffect) return;
-
     try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
+      const ctx = this.getAudioContext();
+      if (!ctx || !this.analyserNode) return;
 
-      if (!this.audioCtx) {
-        this.audioCtx = new AudioCtx();
+      const source = ctx.createMediaElementSource(audioElement);
+
+      if (this.holographicEffect) {
+        const warmth = ctx.createBiquadFilter();
+        warmth.type = 'lowshelf';
+        warmth.frequency.value = 180;
+        warmth.gain.value = 1.5;
+
+        const clarity = ctx.createBiquadFilter();
+        clarity.type = 'peaking';
+        clarity.frequency.value = 3200;
+        clarity.gain.value = 1.8;
+
+        const comp = ctx.createDynamicsCompressor();
+        comp.threshold.value = -18;
+        comp.knee.value = 8;
+        comp.ratio.value = 2.5;
+        comp.attack.value = 0.005;
+        comp.release.value = 0.1;
+
+        source.connect(warmth);
+        warmth.connect(clarity);
+        clarity.connect(comp);
+        comp.connect(this.analyserNode);
+      } else {
+        source.connect(this.analyserNode);
       }
-      if (this.audioCtx.state === 'suspended') {
-        this.audioCtx.resume();
-      }
 
-      const source = this.audioCtx.createMediaElementSource(audioElement);
-
-      const warmth = this.audioCtx.createBiquadFilter();
-      warmth.type = 'lowshelf';
-      warmth.frequency.value = 180;
-      warmth.gain.value = 1.5;
-
-      const clarity = this.audioCtx.createBiquadFilter();
-      clarity.type = 'peaking';
-      clarity.frequency.value = 3200;
-      clarity.gain.value = 1.8;
-
-      const comp = this.audioCtx.createDynamicsCompressor();
-      comp.threshold.value = -18;
-      comp.knee.value = 8;
-      comp.ratio.value = 2.5;
-      comp.attack.value = 0.005;
-      comp.release.value = 0.1;
-
-      source.connect(warmth);
-      warmth.connect(clarity);
-      clarity.connect(comp);
-      comp.connect(this.audioCtx.destination);
-    } catch (_) {}
+      this.analyserNode.connect(ctx.destination);
+    } catch (err) {
+      // Audio already connected or context restricted
+    }
   }
 
   public previewVoice(presetId?: string, text?: string): Promise<void> {

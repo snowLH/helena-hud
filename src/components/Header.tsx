@@ -16,7 +16,8 @@ import {
   Wrench,
   Activity,
   Gauge,
-  Terminal
+  Terminal,
+  Brain
 } from 'lucide-react';
 import { soundSynth } from '../audio/synth';
 import { speechController } from '../audio/speech';
@@ -29,6 +30,7 @@ interface HeaderProps {
   briefingOn: boolean;
   onOpenSettings: (tab?: any) => void;
   onOpenCommands: () => void;
+  onOpenMemoryProfile?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -38,7 +40,8 @@ export const Header: React.FC<HeaderProps> = ({
   consolidated,
   briefingOn,
   onOpenSettings,
-  onOpenCommands
+  onOpenCommands,
+  onOpenMemoryProfile
 }) => {
   const [timeStr, setTimeStr] = useState<string>('');
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
@@ -174,7 +177,7 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        {/* Indicators Cluster (ID, Dados, Briefing) */}
+        {/* Indicators Cluster: RECONHECIDO, MEMÓRIA ATIVA, AGENTE ON */}
         <div className="hidden xl:flex items-center gap-1.5">
           <div
             title={biometricConfirmed ? 'Identidade de Usuário Confirmada' : 'Identidade em Espera'}
@@ -189,32 +192,24 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           <div
-            title={consolidated ? 'Heurísticas e Dados Consolidados' : 'Heurísticas em Espera'}
-            className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-semibold tracking-wider flex items-center gap-1 transition-all ${
-              consolidated
-                ? 'bg-cyan-950/80 border border-cyan-400 text-cyan-300 shadow-[0_0_8px_rgba(0,240,255,0.3)]'
-                : 'bg-slate-900/60 border border-purple-500/30 text-purple-400/60'
-            }`}
+            title="Módulo Honcho de Memória Contínua Ativo"
+            className="px-2 py-0.5 rounded-full text-[9px] font-mono font-semibold tracking-wider flex items-center gap-1 transition-all bg-purple-950/80 border border-purple-400 text-purple-300 shadow-[0_0_8px_rgba(168,85,247,0.3)]"
           >
-            <span className={`w-1 h-1 rounded-full ${consolidated ? 'bg-cyan-400' : 'bg-purple-500/40'}`} />
-            CONSOLIDADO
+            <span className="w-1 h-1 rounded-full bg-purple-400 animate-pulse" />
+            MEMÓRIA ATIVA
           </div>
 
           <div
-            title={briefingOn ? 'Briefing Matinal Ativo' : 'Briefing em Espera'}
-            className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-semibold tracking-wider flex items-center gap-1 transition-all ${
-              briefingOn
-                ? 'bg-purple-950/90 border border-purple-400 text-purple-200 shadow-[0_0_8px_rgba(168,85,247,0.4)]'
-                : 'bg-slate-900/60 border border-purple-500/30 text-purple-400/60'
-            }`}
+            title="Motor de Agente Especialista Local Operacional"
+            className="px-2 py-0.5 rounded-full text-[9px] font-mono font-semibold tracking-wider flex items-center gap-1 transition-all bg-cyan-950/80 border border-cyan-400 text-cyan-300 shadow-[0_0_8px_rgba(0,240,255,0.3)]"
           >
-            <span className={`w-1 h-1 rounded-full ${briefingOn ? 'bg-purple-400' : 'bg-purple-500/40'}`} />
-            BRIEFING
+            <span className="w-1 h-1 rounded-full bg-cyan-400 shadow-[0_0_6px_#00f0ff]" />
+            AGENTE ON
           </div>
         </div>
       </div>
 
-      {/* 2. Center: Quick System Tools Bar (Adaptive Responsive) */}
+      {/* 2. Center: Quick System Tools Bar */}
       <div className="hidden md:flex items-center gap-1.5">
         <button
           onClick={onOpenCommands}
@@ -224,6 +219,17 @@ export const Header: React.FC<HeaderProps> = ({
           <Terminal className="w-3 h-3 text-cyan-400 animate-pulse" />
           <span className="font-semibold hidden lg:inline">COMANDOS</span>
         </button>
+
+        {onOpenMemoryProfile && (
+          <button
+            onClick={onOpenMemoryProfile}
+            title="Visualizar Memória Longa (Honcho) e Perfil do Usuário"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-purple-500/60 bg-purple-950/70 hover:bg-purple-900/90 hover:border-purple-300 text-[10px] text-purple-300 hover:text-white font-mono transition-all cursor-pointer shadow-[0_0_12px_rgba(168,85,247,0.35)]"
+          >
+            <Brain className="w-3 h-3 text-purple-400 animate-pulse" />
+            <span className="font-semibold hidden lg:inline">MEMÓRIA & PERFIL</span>
+          </button>
+        )}
 
         <button
           onClick={() => onOpenSettings('processos')}

@@ -1,0 +1,94 @@
+{
+  "padroesAprendidos": [
+    {
+      "padrao": "Horário de Trabalho Intenso",
+      "observacao": "Operador costuma iniciar rotinas de programação e engenharia entre 08:30 e 09:30.",
+      "confianca": 95,
+      "dataDetecao": "2026-10-24"
+    },
+    {
+      "padrao": "Otimização Preventiva",
+      "observacao": "Costuma realizar limpeza de arquivos temporários antes de rodar compilações pesadas.",
+      "confianca": 90,
+      "dataDetecao": "2026-10-24"
+    },
+    {
+      "padrao": "Preferência de Áudio",
+      "observacao": "Voz feminina neural com respostas diretas, assertivas e telemetria precisa.",
+      "confianca": 98,
+      "dataDetecao": "2026-10-24"
+    }
+  ],
+  "memoriasEpisodicas": [
+    {
+      "id": "mem-1792894045240-rrn6uk",
+      "tipo": "modo_trabalho",
+      "resumo": "Modo de trabalho ativado. Ferramentas e sites abertos: https://github.com, https://google.com.",
+      "data": "2026-10-25T02:07:25.240Z",
+      "relevancia": "Média"
+    },
+    {
+      "id": "mem-1792893977560-a3ask9",
+      "tipo": "briefing",
+      "resumo": "Briefing matinal executado. Hardware estável, agenda e foco em \"Auditoria de Segurança de Processos Locais\" alinhados.",
+      "data": "2026-10-25T02:06:17.560Z",
+      "relevancia": "Alta"
+    },
+    {
+      "id": "mem-1792893975068-9l20oc",
+      "tipo": "fato_usuario",
+      "resumo": "foco no pen drive",
+      "data": "2026-10-25T02:06:15.068Z",
+      "relevancia": "Alta"
+    },
+    {
+      "id": "mem-1792893972070-7mfb",
+      "tipo": "organizacao_arquivos",
+      "resumo": "Varredura de arquivos: 186 itens em Downloads e 1 em Documentos.",
+      "data": "2026-10-25T02:06:12.070Z",
+      "relevancia": "Baixa"
+    },
+    {
+      "id": "mem-1792893970504-g0y2de",
+      "tipo": "modo_trabalho",
+      "resumo": "Modo de trabalho ativado. Ferramentas e sites abertos: https://github.com, https://google.com.",
+      "data": "2026-10-25T02:06:10.504Z",
+      "relevancia": "Média"
+    },
+    {
+      "id": "mem-1792893969125-giftlk",
+      "tipo": "modo_trabalho",
+      "resumo": "Modo de trabalho ativado. Ferramentas e sites abertos: https://github.com, https://google.com.",
+      "data": "2026-10-25T02:06:09.125Z",
+      "relevancia": "Média"
+    },
+    {
+      "id": "mem-1",
+      "tipo": "briefing",
+      "resumo": "Briefing matinal executado. Hardware verificado com carga de CPU baixa e memória estável.",
+      "data": "2026-10-24T08:30:00.000Z",
+      "relevancia": "Alta"
+    },
+    {
+      "id": "mem-2",
+      "tipo": "otimizacao",
+      "resumo": "Otimização de sistema concluída. 450 MB de arquivos temporários eliminados e cache DNS renovado.",
+      "data": "2026-10-24T10:15:00.000Z",
+      "relevancia": "Média"
+    },
+    {
+      "id": "mem-3",
+      "tipo": "fato_usuario",
+      "resumo": "Operador solicitou manter a assistente 100% autônoma, offline e portátil no pen drive.",
+      "data": "2026-10-24T12:00:00.000Z",
+      "relevancia": "Crítica"
+    }
+  ],
+  "estatisticas": {
+    "totalInteracoes": 24,
+    "otimizacoesRealizadas": 4,
+    "briefingsExecutados": 3,
+    "arquivosOrganizados": 13,
+    "ultimaInteracao": "2026-10-25T02:07:25.240Z"
+  }
+}
