@@ -874,34 +874,53 @@ async function executeWebSearch(query) {
   }
 }
 
-// Helper to fetch Google Neural TTS in streaming chunks
-async function fetchGoogleTTSChunk(text) {
-  const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=pt-BR&client=tw-ob&q=${encodeURIComponent(text)}`;
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
+// Helper to fetch Web Human Neural Voice (Amazon Polly Camila / Vitoria via Web)
+async function fetchWebVoiceChunk(text, speaker = 'Camila') {
+  const form = new URLSearchParams();
+  form.append('msg', text);
+  form.append('lang', speaker);
+  form.append('source', 'ttsmp3');
+
+  const res = await fetch('https://ttsmp3.com/makemp3_new.php', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
+    },
+    body: form.toString()
   });
-  if (!res.ok) throw new Error(`Google TTS HTTP ${res.status}`);
-  return Buffer.from(await res.arrayBuffer());
+
+  if (!res.ok) throw new Error(`Web TTS HTTP ${res.status}`);
+  const data = await res.json();
+  if (data.Error !== 0 || !data.URL) {
+    throw new Error(data.message || 'Falha ao sintetizar voz humana');
+  }
+
+  const audioRes = await fetch(data.URL);
+  if (!audioRes.ok) throw new Error(`Falha ao descarregar MP3 da voz HTTP ${audioRes.status}`);
+  return Buffer.from(await audioRes.arrayBuffer());
 }
 
-async function getGoogleTTSFull(text) {
-  const words = text.split(' ');
+async function getWebVoiceFull(text, speaker = 'Camila') {
+  const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
   const chunks = [];
   let current = '';
 
-  for (const w of words) {
-    if ((current + ' ' + w).trim().length > 170) {
+  for (const s of sentences) {
+    const trimmed = s.trim();
+    if (!trimmed) continue;
+    if ((current + ' ' + trimmed).trim().length > 250) {
       if (current) chunks.push(current.trim());
-      current = w;
+      current = trimmed;
     } else {
-      current = current ? current + ' ' + w : w;
+      current = current ? current + ' ' + trimmed : trimmed;
     }
   }
   if (current.trim()) chunks.push(current.trim());
 
   const buffers = [];
   for (const chunk of chunks) {
-    const buf = await fetchGoogleTTSChunk(chunk);
+    const buf = await fetchWebVoiceChunk(chunk, speaker);
     buffers.push(buf);
   }
   return Buffer.concat(buffers);
@@ -2322,7 +2341,21 @@ app.post('/api/tts', async (req, res) => {
     return fs.createReadStream(cachedFilePath).pipe(res);
   }
 
-  // 1.5. Síntese Neural Offline Nativa via piper.exe (Pen drive / runtime)
+  // 2. Síntese de Voz Humana da Web (Amazon Polly Camila / Vitória - Altíssima Fidelidade sem Tom Robótico)
+  const webSpeaker = (selectedVoice.toLowerCase().includes('vitoria')) ? 'Vitoria' : 'Camila';
+  try {
+    const audioBuffer = await getWebVoiceFull(cleanText, webSpeaker);
+    if (audioBuffer && audioBuffer.length > 0) {
+      try { fs.writeFileSync(cachedFilePath, audioBuffer); } catch (_) {}
+      res.setHeader('Content-Type', 'audio/mpeg');
+      res.setHeader('X-TTS-Source', 'Web_Human_Neural');
+      return res.send(audioBuffer);
+    }
+  } catch (webErr) {
+    console.warn('Web human TTS falhou, tentando fallback local:', webErr.message);
+  }
+
+  // 3. Fallback Offline: Síntese Neural Nativa via piper.exe (Pen drive / runtime)
   const piperExe = fs.existsSync(path.join(__dirname, 'runtime', 'piper', 'piper.exe'))
     ? path.join(__dirname, 'runtime', 'piper', 'piper.exe')
     : fs.existsSync(path.join(__dirname, 'piper.exe'))
@@ -2354,7 +2387,7 @@ app.post('/api/tts', async (req, res) => {
     } catch (_) {}
   }
 
-  // 2. Síntese Neural via Python edge_tts local (se Python disponível na máquina)
+  // 4. Fallback Python edge_tts local (se Python disponível na máquina)
   const pyScript = path.join(__dirname, 'tts_generate.py');
   const tempOutputFile = path.join(os.tmpdir(), `helena_tts_${Date.now()}_${Math.random().toString(36).substring(7)}.mp3`);
 
@@ -2375,20 +2408,7 @@ app.post('/api/tts', async (req, res) => {
         return;
       }
 
-      // 3. Fallback Universal: Google Neural TTS Streaming (funciona no Vercel e em qualquer PC)
-      try {
-        const audioBuffer = await getGoogleTTSFull(cleanText);
-        if (audioBuffer && audioBuffer.length > 0) {
-          try { fs.writeFileSync(cachedFilePath, audioBuffer); } catch (_) {}
-          res.setHeader('Content-Type', 'audio/mpeg');
-          res.setHeader('X-TTS-Source', 'Google_Neural');
-          return res.send(audioBuffer);
-        }
-      } catch (gErr) {
-        console.warn('Google TTS streaming falhou:', gErr.message);
-      }
-
-      // 4. Fallback final para Web Speech API no navegador
+      // 5. Fallback final para Web Speech API no navegador
       res.json({
         engine: "web_speech_api",
         fallback: true,
@@ -2399,16 +2419,6 @@ app.post('/api/tts', async (req, res) => {
     pyProcess.stdin.write(cleanText, 'utf-8');
     pyProcess.stdin.end();
   } catch (outerErr) {
-    try {
-      const audioBuffer = await getGoogleTTSFull(cleanText);
-      if (audioBuffer && audioBuffer.length > 0) {
-        try { fs.writeFileSync(cachedFilePath, audioBuffer); } catch (_) {}
-        res.setHeader('Content-Type', 'audio/mpeg');
-        res.setHeader('X-TTS-Source', 'Google_Neural');
-        return res.send(audioBuffer);
-      }
-    } catch (_) {}
-
     res.json({ engine: "web_speech_api", fallback: true });
   }
 });

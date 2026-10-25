@@ -12,27 +12,35 @@ export interface JarvisVoicePreset {
 
 export const JARVIS_VOICE_PRESETS: JarvisVoicePreset[] = [
   {
-    id: 'helena_multilingual',
-    name: 'Helena Ultra-Natural (Multilingual Neural)',
-    voiceKey: 'pt-BR-ThalitaMultilingualNeural',
-    description: 'Voz feminina humana de última geração. Sem tom robótico, prosódia fluida e respiração realista.',
+    id: 'helena_camila_web',
+    name: 'Helena Camila (Voz Humana Web)',
+    voiceKey: 'Camila',
+    description: 'Voz feminina humana de estúdio web. Prosódia realista, respiração natural e dicção cristalina sem tom robótico.',
     rate: '+0%',
     pitch: '+0Hz',
     isJarvisDefault: true
   },
   {
-    id: 'jarvis_francisca',
-    name: 'Helena Clássica (Francisca Neural)',
-    voiceKey: 'pt-BR-FranciscaNeural',
-    description: 'Voz feminina aveludada, refinada e suave estilo assistente executiva.',
+    id: 'helena_vitoria_web',
+    name: 'Helena Vitória (Voz Suave Web)',
+    voiceKey: 'Vitoria',
+    description: 'Voz feminina suave, calma e agradável da Web, ideal para briefings e diagnósticos longos.',
     rate: '+0%',
     pitch: '+0Hz'
   },
   {
-    id: 'helena_google',
-    name: 'Helena Estúdio (Google Neural)',
-    voiceKey: 'google_pt_br',
-    description: 'Voz limpa em streaming direto de alta definição para navegadores e nuvem.',
+    id: 'helena_multilingual',
+    name: 'Helena Thalita (Neural Edge/Local)',
+    voiceKey: 'pt-BR-ThalitaMultilingualNeural',
+    description: 'Voz neural feminina de resposta ultra-rápida via síntese local / edge.',
+    rate: '+0%',
+    pitch: '+0Hz'
+  },
+  {
+    id: 'jarvis_francisca',
+    name: 'Helena Francisca (Neural Clássica)',
+    voiceKey: 'pt-BR-FranciscaNeural',
+    description: 'Voz feminina aveludada, refinada e executiva padrão Microsoft Natural.',
     rate: '+0%',
     pitch: '+0Hz'
   }
@@ -48,7 +56,7 @@ class SpeechController {
   public enabled: boolean = true;
 
   // Selected Neural Voice
-  public activePresetId: string = 'helena_multilingual';
+  public activePresetId: string = 'helena_camila_web';
   public holographicEffect: boolean = false; // Padrão 100% natural sem metalizado
   public customRate: string = '+0%';
   public customPitch: string = '+0Hz';
@@ -59,7 +67,7 @@ class SpeechController {
       if (savedPreset && JARVIS_VOICE_PRESETS.some((p) => p.id === savedPreset)) {
         this.activePresetId = savedPreset;
       } else {
-        this.activePresetId = 'helena_multilingual';
+        this.activePresetId = 'helena_camila_web';
       }
 
       const savedHolo = localStorage.getItem('helena_holographic_fx');
