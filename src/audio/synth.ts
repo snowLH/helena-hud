@@ -188,6 +188,87 @@ class SoundSynthesizer {
       osc.stop(now + 0.5);
     } catch (_) {}
   }
+
+  // Crisp, tactile sci-fi UI micro click
+  public playClick(pitchMultiplier: number = 1.0) {
+    if (!this.enabled) return;
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1400 * pitchMultiplier, now);
+      osc.frequency.exponentialRampToValueAtTime(800 * pitchMultiplier, now + 0.02);
+
+      gain.gain.setValueAtTime(0.03, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.025);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.025);
+    } catch (_) {}
+  }
+
+  // Sci-Fi alert / notification chime (two-tone futuristic ping)
+  public playAlert() {
+    if (!this.enabled) return;
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+
+      const now = this.ctx.currentTime;
+      const tones = [987.77, 1318.51]; // B5, E6
+
+      tones.forEach((freq, idx) => {
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+
+        gain.gain.setValueAtTime(0.08, now + idx * 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.1 + 0.35);
+
+        osc.connect(gain);
+        gain.connect(this.ctx!.destination);
+
+        osc.start(now + idx * 0.1);
+        osc.stop(now + idx * 0.1 + 0.35);
+      });
+    } catch (_) {}
+  }
+
+  // Power down / deactivation hum
+  public playPowerDown() {
+    if (!this.enabled) return;
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(400, now);
+      osc.frequency.exponentialRampToValueAtTime(60, now + 0.4);
+
+      gain.gain.setValueAtTime(0.06, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.4);
+    } catch (_) {}
+  }
 }
 
 export const soundSynth = new SoundSynthesizer();

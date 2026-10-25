@@ -106,5 +106,12 @@
       "manchete": "Novas diretrizes para descarte de caches efêmeros aceleram tempo de resposta de I/O em até 30%.",
       "relevancia": "Média"
     }
+  ],
+  "anotacoes": [
+    {
+      "id": "nt-1792886543204",
+      "texto": "verificar integridade do pen drive",
+      "data": "24/10/2026"
+    }
   ]
 }

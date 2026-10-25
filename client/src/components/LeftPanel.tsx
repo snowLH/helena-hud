@@ -1,6 +1,6 @@
 import React from 'react';
 import type { SystemStatus } from '../types';
-import { Cpu, Activity, ShieldCheck, Zap } from 'lucide-react';
+import { Cpu, Activity, ShieldCheck, Zap, Battery, BatteryCharging } from 'lucide-react';
 
 interface LeftPanelProps {
   status: SystemStatus | null;
@@ -91,6 +91,34 @@ export const LeftPanel: React.FC<LeftPanelProps> = ({ status }) => {
           <span className="text-purple-300/80 font-semibold">COMPRESSÃO: ATIVA</span>
         </div>
       </div>
+
+      {/* 2.1. Battery Telemetry Widget */}
+      {status?.battery && (
+        <div className="rounded-xl border border-purple-500/30 bg-slate-950/70 backdrop-blur-md p-2.5 shadow-[0_0_20px_rgba(11,4,16,0.8)] relative overflow-hidden">
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-1.5 text-cyan-300 font-mono text-[11px] font-semibold tracking-wider">
+              {status.battery.isCharging ? (
+                <BatteryCharging className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+              ) : (
+                <Battery className="w-3.5 h-3.5 text-cyan-400" />
+              )}
+              <span>ENERGIA & BATERIA</span>
+            </div>
+            <span className="text-[10px] font-mono text-cyan-300 font-bold">{status.battery.percent}%</span>
+          </div>
+
+          <div className="w-full h-1.5 rounded-full bg-purple-950/50 border border-purple-500/30 overflow-hidden mb-1">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${status.battery.percent > 40 ? 'bg-gradient-to-r from-cyan-400 to-emerald-400' : 'bg-amber-400'}`}
+              style={{ width: `${status.battery.percent}%` }}
+            />
+          </div>
+
+          <div className="text-[8.5px] font-mono text-purple-300/70 truncate">
+            {status.battery.statusText}
+          </div>
+        </div>
+      )}
 
       {/* 3. Assistant Security Directive */}
       <div className="rounded-xl border border-purple-500/30 bg-slate-950/70 backdrop-blur-md p-2.5 shadow-[0_0_20px_rgba(11,4,16,0.8)] text-xs font-mono">

@@ -34,6 +34,7 @@ export interface SystemStatus {
     fileCount: number;
     totalMB: number;
   };
+  battery?: BatteryInfo;
   topProcesses: Array<{
     name: string;
     pid: number;
@@ -80,6 +81,59 @@ export interface StartupApp {
   location?: string;
   enabled: boolean;
   impact: 'ALTO' | 'MÉDIO' | 'BAIXO';
+}
+
+export interface ProcessItem {
+  name: string;
+  pid: number;
+  memoryMB: number;
+  isCritical?: boolean;
+}
+
+export interface BenchmarkResult {
+  score: number;
+  rating: string;
+  cpuSpeedMs: number;
+  hashesPerSec: number;
+  ramThroughputMBps: number;
+  diskThroughputMBps: number;
+  timestamp: string;
+  nucleos: number;
+  cpuModel: string;
+}
+
+export interface BatteryInfo {
+  hasBattery: boolean;
+  percent: number;
+  isCharging: boolean;
+  statusText: string;
+}
+
+export interface NetworkDiagnostics {
+  latencyMs: number;
+  pingCloudflare: number;
+  pingGoogle: number;
+  dnsSpeedMs: number;
+  localIp: string;
+  publicIp: string;
+  online: boolean;
+}
+
+export interface WeatherResult {
+  city: string;
+  state?: string;
+  country?: string;
+  temp: number;
+  humidity: number;
+  condition: string;
+  windKmH: number;
+  online: boolean;
+}
+
+export interface AnotacaoItem {
+  id: string;
+  texto: string;
+  data: string;
 }
 
 export interface SearchResult {
@@ -137,6 +191,7 @@ export interface PersonalData {
   agenda: AgendaItem[];
   prioridades: PrioridadeItem[];
   metas: MetaItem[];
+  anotacoes?: AnotacaoItem[];
   noticias_radares?: Array<{
     topico: string;
     manchete: string;
@@ -161,7 +216,14 @@ export interface HelenaCard {
     | 'reparo_sistema'
     | 'startup_manager'
     | 'app_launcher'
-    | 'pesquisa_web';
+    | 'pesquisa_web'
+    | 'benchmark'
+    | 'bateria'
+    | 'diagnostico_rede'
+    | 'calculo'
+    | 'clima_dinamico'
+    | 'timer'
+    | 'anotacoes';
   subtitulo: string;
   fala: string;
   metricas?: Array<{ label: string; valor: string; detalhe?: string }>;
@@ -174,6 +236,13 @@ export interface HelenaCard {
   relatorioReparo?: RepairReport;
   resultadoPesquisa?: SearchResult;
   startupApps?: StartupApp[];
+  resultadoBenchmark?: BenchmarkResult;
+  infoBateria?: BatteryInfo;
+  diagnosticoRede?: NetworkDiagnostics;
+  resultadoClima?: WeatherResult;
+  calculo?: { expressao: string; resultado: string };
+  timer?: { segundos: number; label: string };
+  anotacoes?: AnotacaoItem[];
   appLancado?: string;
   motor?: string;
   texto?: string;

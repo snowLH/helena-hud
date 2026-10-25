@@ -1,5 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, Send, Terminal, Sparkles, Zap, Wrench, Power, Globe, Rocket } from 'lucide-react';
+import {
+  Mic,
+  MicOff,
+  Send,
+  Terminal,
+  Sparkles,
+  Zap,
+  Wrench,
+  Power,
+  Globe,
+  Rocket,
+  Gauge,
+  BatteryCharging,
+  Calculator
+} from 'lucide-react';
 import { soundSynth } from '../audio/synth';
 
 interface CommandBarProps {
@@ -107,12 +121,15 @@ export const CommandBar: React.FC<CommandBarProps> = ({
   };
 
   const quickPills = [
-    { label: 'Helena, bom dia', shortLabel: 'Briefing Matinal', icon: <Sparkles className="w-3 h-3 text-cyan-400" /> },
+    { label: 'Helena, bom dia', shortLabel: 'Briefing', icon: <Sparkles className="w-3 h-3 text-cyan-400" /> },
     { label: 'Helena, otimizar computador', shortLabel: 'Otimizar PC', icon: <Zap className="w-3 h-3 text-amber-400" /> },
-    { label: 'Helena, reparar o PC', shortLabel: 'Reparar Sistema', icon: <Wrench className="w-3 h-3 text-emerald-400" /> },
-    { label: 'Helena, programas de inicialização', shortLabel: 'Boot & Startup', icon: <Power className="w-3 h-3 text-purple-400" /> },
-    { label: 'Helena, abrir calculadora', shortLabel: 'Calculadora', icon: <Rocket className="w-3 h-3 text-rose-400" /> },
-    { label: 'Helena, o que é IA?', shortLabel: 'Pesquisa Web', icon: <Globe className="w-3 h-3 text-cyan-400" /> }
+    { label: 'Helena, reparar o PC', shortLabel: 'Reparar', icon: <Wrench className="w-3 h-3 text-emerald-400" /> },
+    { label: 'Helena, fazer benchmark', shortLabel: 'Benchmark', icon: <Gauge className="w-3 h-3 text-cyan-400" /> },
+    { label: 'Helena, diagnóstico de rede', shortLabel: 'Teste de Rede', icon: <Globe className="w-3 h-3 text-purple-400" /> },
+    { label: 'Helena, nível de bateria', shortLabel: 'Bateria', icon: <BatteryCharging className="w-3 h-3 text-emerald-400" /> },
+    { label: 'Helena, programas de inicialização', shortLabel: 'Boot', icon: <Power className="w-3 h-3 text-purple-400" /> },
+    { label: 'Helena, quanto é 15% de 800', shortLabel: 'Cálculo', icon: <Calculator className="w-3 h-3 text-rose-400" /> },
+    { label: 'Helena, o que é IA?', shortLabel: 'Pesquisa', icon: <Rocket className="w-3 h-3 text-cyan-400" /> }
   ];
 
   return (

@@ -15,7 +15,7 @@ import { CardFocus } from './components/CardFocus';
 import { BottomDock } from './components/BottomDock';
 import { CommandBar } from './components/CommandBar';
 import { ConsolidationOverlay } from './components/ConsolidationOverlay';
-import { SettingsModal } from './components/SettingsModal';
+import { SettingsModal, type SettingsTabType } from './components/SettingsModal';
 import { soundSynth } from './audio/synth';
 import { speechController } from './audio/speech';
 
@@ -40,7 +40,7 @@ export function App() {
 
   // UI Modals & Processing
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
-  const [settingsTab, setSettingsTab] = useState<'jarvis_voz' | 'startup' | 'reparo' | 'rede' | 'perfil' | 'agenda' | 'prioridades' | 'raw'>('jarvis_voz');
+  const [settingsTab, setSettingsTab] = useState<SettingsTabType>('jarvis_voz');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
   const activeFlowRef = useRef<boolean>(false);
@@ -87,7 +87,19 @@ export function App() {
       fetchTelemetry();
     }, 3000);
 
-    return () => clearInterval(interval);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        soundSynth.playTelemetryBeep();
+        setIsSettingsOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [fetchTelemetry, fetchBriefingData]);
 
   // Save personal data back to pen drive

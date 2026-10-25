@@ -13,7 +13,9 @@ import {
   Download,
   Smartphone,
   Power,
-  Wrench
+  Wrench,
+  Activity,
+  Gauge
 } from 'lucide-react';
 import { soundSynth } from '../audio/synth';
 import { speechController } from '../audio/speech';
@@ -211,6 +213,24 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* 2. Center: Quick System Tools Bar (Adaptive Responsive) */}
       <div className="hidden md:flex items-center gap-1.5">
+        <button
+          onClick={() => onOpenSettings('processos')}
+          title="Gerenciador de Processos e Memória (Task Manager)"
+          className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-cyan-500/40 bg-cyan-950/40 hover:bg-cyan-900/60 hover:border-cyan-300 text-[10px] text-cyan-200 font-mono transition-all cursor-pointer shadow-[0_0_10px_rgba(0,240,255,0.2)]"
+        >
+          <Activity className="w-3 h-3 text-cyan-400" />
+          <span className="font-semibold hidden lg:inline">PROCESSOS</span>
+        </button>
+
+        <button
+          onClick={() => onOpenSettings('benchmark')}
+          title="Executar Benchmark de Velocidade da Máquina"
+          className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-purple-500/40 bg-purple-950/40 hover:bg-purple-900/60 hover:border-purple-300 text-[10px] text-purple-200 font-mono transition-all cursor-pointer shadow-[0_0_10px_rgba(168,85,247,0.2)]"
+        >
+          <Gauge className="w-3 h-3 text-purple-400" />
+          <span className="font-semibold hidden lg:inline">BENCHMARK</span>
+        </button>
+
         <button
           onClick={() => onOpenSettings('startup')}
           title="Gerenciar Inicialização do Windows (Boot Apps)"

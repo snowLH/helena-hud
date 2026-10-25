@@ -48,6 +48,8 @@ class SpeechController {
   // Selected Neural Voice
   public activePresetId: string = 'helena_multilingual';
   public holographicEffect: boolean = false; // Padrão 100% natural sem metalizado
+  public customRate: string = '+0%';
+  public customPitch: string = '+0Hz';
 
   constructor() {
     try {
@@ -60,7 +62,23 @@ class SpeechController {
 
       const savedHolo = localStorage.getItem('helena_holographic_fx');
       if (savedHolo !== null) this.holographicEffect = savedHolo === 'true';
+
+      const savedRate = localStorage.getItem('helena_voice_rate');
+      if (savedRate) this.customRate = savedRate;
+
+      const savedPitch = localStorage.getItem('helena_voice_pitch');
+      if (savedPitch) this.customPitch = savedPitch;
     } catch (_) {}
+  }
+
+  public setCustomRate(rate: string) {
+    this.customRate = rate;
+    try { localStorage.setItem('helena_voice_rate', rate); } catch (_) {}
+  }
+
+  public setCustomPitch(pitch: string) {
+    this.customPitch = pitch;
+    try { localStorage.setItem('helena_voice_pitch', pitch); } catch (_) {}
   }
 
   public getActivePreset(): JarvisVoicePreset {
@@ -186,8 +204,8 @@ class SpeechController {
         body: JSON.stringify({
           text: cleanText,
           voice: preset.voiceKey,
-          rate: preset.rate,
-          pitch: preset.pitch
+          rate: this.customRate || preset.rate,
+          pitch: this.customPitch || preset.pitch
         })
       });
 

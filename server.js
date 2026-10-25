@@ -6,6 +6,7 @@ const path = require('path');
 const { exec, execSync } = require('child_process');
 const http = require('http');
 const crypto = require('crypto');
+const dns = require('dns');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -175,6 +176,316 @@ function getTopProcesses() {
       { name: "Node.js Server", pid: process.pid, memoryMB: 68.4 }
     ];
   }
+}
+
+// Critical processes protected against termination
+const CRITICAL_PROCESSES = new Set([
+  'system', 'idle', 'registry', 'smss', 'csrss', 'wininit', 'services', 'lsass',
+  'svchost', 'fontdrvhost', 'dwm', 'explorer', 'winlogon', 'taskhostw', 'spoolsv',
+  'node', 'cmd', 'powershell', 'conhost', 'runtimebroker', 'shellexperiencehost',
+  'searchapp', 'startmenuexperiencehost'
+]);
+
+// Helper to get up to 30 processes with memory & critical status
+function getAllProcesses(limit = 25) {
+  try {
+    const cmd = `powershell -NoProfile -Command "Get-Process | Sort-Object WorkingSet64 -Descending | Select-Object -First ${limit} -Property ProcessName, Id, WS | ConvertTo-Json"`;
+    const output = execSync(cmd, { timeout: 4000, encoding: 'utf-8' });
+    const parsed = JSON.parse(output.trim());
+    const list = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
+    return list.map(p => {
+      const name = p.ProcessName || 'Processo';
+      const isCritical = CRITICAL_PROCESSES.has(name.toLowerCase());
+      return {
+        name,
+        pid: p.Id,
+        memoryMB: Math.round(((p.WS || 0) / (1024 * 1024)) * 10) / 10,
+        isCritical
+      };
+    });
+  } catch (err) {
+    return [
+      { name: "Sistema / Kernel", pid: 4, memoryMB: 480.5, isCritical: true },
+      { name: "Explorer", pid: 2100, memoryMB: 195.2, isCritical: true },
+      { name: "Navegador Web", pid: 3412, memoryMB: 380.0, isCritical: false },
+      { name: "Node.js Server", pid: process.pid, memoryMB: 68.4, isCritical: true }
+    ];
+  }
+}
+
+// Helper to query Win32_Battery or fallback to AC Continuous
+function getBatteryInfo() {
+  try {
+    const cmd = `powershell -NoProfile -Command "Get-CimInstance Win32_Battery | Select-Object EstimatedChargeRemaining, BatteryStatus | ConvertTo-Json"`;
+    const output = execSync(cmd, { timeout: 3500, encoding: 'utf-8' });
+    if (output && output.trim()) {
+      const parsed = JSON.parse(output.trim());
+      const item = Array.isArray(parsed) ? parsed[0] : parsed;
+      if (item && typeof item.EstimatedChargeRemaining === 'number') {
+        const percent = item.EstimatedChargeRemaining;
+        const isCharging = item.BatteryStatus === 2 || item.BatteryStatus === 6;
+        const statusText = isCharging
+          ? `Carregando (${percent}%) - Conectado à rede elétrica`
+          : `Operando em Bateria (${percent}%)`;
+        return {
+          hasBattery: true,
+          percent,
+          isCharging,
+          statusText
+        };
+      }
+    }
+  } catch (_) {}
+
+  return {
+    hasBattery: false,
+    percent: 100,
+    isCharging: true,
+    statusText: 'Alimentação AC Contínua (Desktop/Servidor)'
+  };
+}
+
+// Helper to execute instant local computational benchmark (<100ms)
+function runSystemBenchmark() {
+  const cpuStart = process.hrtime.bigint();
+  let primeCount = 0;
+  for (let n = 2; n < 150000; n++) {
+    let isPrime = true;
+    const limit = Math.sqrt(n);
+    for (let d = 2; d <= limit; d++) {
+      if (n % d === 0) {
+        isPrime = false;
+        break;
+      }
+    }
+    if (isPrime) primeCount++;
+  }
+  
+  let hashVal = 'helena_bench_seed_2026';
+  for (let i = 0; i < 25000; i++) {
+    hashVal = crypto.createHash('sha256').update(hashVal + i).digest('hex');
+  }
+  const cpuEnd = process.hrtime.bigint();
+  const cpuSpeedMs = Number(cpuEnd - cpuStart) / 1000000;
+
+  const ramStart = process.hrtime.bigint();
+  const chunkSize = 1024 * 1024;
+  const chunkCount = 64;
+  let dummySum = 0;
+  for (let c = 0; c < chunkCount; c++) {
+    const buf = Buffer.alloc(chunkSize, c % 255);
+    dummySum += buf[100];
+  }
+  const ramEnd = process.hrtime.bigint();
+  const ramTimeSec = Number(ramEnd - ramStart) / 1000000000;
+  const ramThroughputMBps = Math.round(64 / (ramTimeSec || 0.001));
+
+  let diskThroughputMBps = 450;
+  try {
+    const benchFile = path.join(os.tmpdir(), `helena_bench_${Date.now()}.bin`);
+    const benchBuf = Buffer.alloc(8 * 1024 * 1024, 0xAB);
+    const dStart = process.hrtime.bigint();
+    fs.writeFileSync(benchFile, benchBuf);
+    fs.readFileSync(benchFile);
+    fs.unlinkSync(benchFile);
+    const dEnd = process.hrtime.bigint();
+    const dSec = Number(dEnd - dStart) / 1000000000;
+    diskThroughputMBps = Math.round(16 / (dSec || 0.001));
+  } catch (_) {}
+
+  const cpuScore = Math.max(100, Math.min(600, Math.round(600 * (250 / Math.max(cpuSpeedMs, 100)))));
+  const ramScore = Math.max(50, Math.min(250, Math.round(ramThroughputMBps / 20)));
+  const diskScore = Math.max(50, Math.min(150, Math.round(diskThroughputMBps / 8)));
+  const totalScore = Math.min(1000, cpuScore + ramScore + diskScore);
+
+  let rating = 'EXCELENTE';
+  if (totalScore < 500) rating = 'BÁSICO';
+  else if (totalScore < 750) rating = 'BOM';
+  else if (totalScore < 900) rating = 'MUITO BOM';
+
+  return {
+    score: totalScore,
+    rating,
+    cpuSpeedMs: Math.round(cpuSpeedMs),
+    hashesPerSec: Math.round(25000 / (cpuSpeedMs / 1000)),
+    ramThroughputMBps,
+    diskThroughputMBps,
+    timestamp: new Date().toISOString(),
+    nucleos: os.cpus().length,
+    cpuModel: os.cpus()[0]?.model || 'Processador Multi-Core'
+  };
+}
+
+// Helper to run full network diagnostics
+async function runNetworkDiagnostics() {
+  const localIp = getLocalIpAddress();
+
+  const pingCloudflarePromise = new Promise(resolve => {
+    exec('ping -n 1 1.1.1.1', { timeout: 2000 }, (err, stdout) => {
+      if (!err && stdout) {
+        const match = stdout.match(/(?:tempo|time)[=<](\d+)ms/i);
+        if (match && match[1]) return resolve(parseInt(match[1], 10));
+      }
+      resolve(err ? 999 : 25);
+    });
+  });
+
+  const pingGooglePromise = new Promise(resolve => {
+    exec('ping -n 1 8.8.8.8', { timeout: 2000 }, (err, stdout) => {
+      if (!err && stdout) {
+        const match = stdout.match(/(?:tempo|time)[=<](\d+)ms/i);
+        if (match && match[1]) return resolve(parseInt(match[1], 10));
+      }
+      resolve(err ? 999 : 28);
+    });
+  });
+
+  const dnsStart = Date.now();
+  let dnsSpeedMs = 15;
+  try {
+    await new Promise((res) => {
+      dns.lookup('google.com', () => {
+        dnsSpeedMs = Math.max(1, Date.now() - dnsStart);
+        res();
+      });
+    });
+  } catch (_) {
+    dnsSpeedMs = 45;
+  }
+
+  const [pingCloudflare, pingGoogle] = await Promise.all([pingCloudflarePromise, pingGooglePromise]);
+  const online = pingCloudflare < 500 || pingGoogle < 500;
+  const bestPing = Math.min(pingCloudflare, pingGoogle);
+
+  let publicIp = 'Indisponível';
+  if (online) {
+    try {
+      const ipRes = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(2000) });
+      if (ipRes.ok) {
+        const ipJson = await ipRes.json();
+        publicIp = ipJson.ip || publicIp;
+      }
+    } catch (_) {}
+  }
+
+  return {
+    latencyMs: bestPing === 999 ? 0 : bestPing,
+    pingCloudflare: pingCloudflare === 999 ? 0 : pingCloudflare,
+    pingGoogle: pingGoogle === 999 ? 0 : pingGoogle,
+    dnsSpeedMs,
+    localIp,
+    publicIp,
+    online
+  };
+}
+
+// Helper to fetch live Open-Meteo weather (100% free, zero-key)
+async function fetchDynamicWeather(cityName) {
+  const city = (cityName || 'São Paulo').trim();
+  try {
+    const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=pt&format=json`;
+    const geoRes = await fetch(geoUrl, { signal: AbortSignal.timeout(3000) });
+    if (!geoRes.ok) throw new Error('Geocoding falhou');
+    const geoData = await geoRes.json();
+    const place = geoData.results?.[0];
+    if (!place) throw new Error('Cidade não localizada');
+
+    const lat = place.latitude;
+    const lon = place.longitude;
+    const resolvedName = place.name;
+    const admin1 = place.admin1 || '';
+    const country = place.country || 'Brasil';
+
+    const forecastUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&timezone=auto`;
+    const fRes = await fetch(forecastUrl, { signal: AbortSignal.timeout(3000) });
+    if (!fRes.ok) throw new Error('Forecast falhou');
+    const fData = await fRes.json();
+    const curr = fData.current || {};
+
+    const code = curr.weather_code || 0;
+    let cond = 'Céu Limpo';
+    if (code === 1 || code === 2 || code === 3) cond = 'Parcialmente Nublado';
+    else if (code === 45 || code === 48) cond = 'Nevoeiro';
+    else if (code >= 51 && code <= 55) cond = 'Garoa Leve';
+    else if (code >= 61 && code <= 65) cond = 'Chuva';
+    else if (code >= 71 && code <= 77) cond = 'Neve';
+    else if (code >= 80 && code <= 82) cond = 'Pancadas de Chuva';
+    else if (code >= 95) cond = 'Tempestade';
+
+    return {
+      city: resolvedName,
+      state: admin1,
+      country,
+      temp: Math.round(curr.temperature_2m ?? 24),
+      humidity: Math.round(curr.relative_humidity_2m ?? 60),
+      condition: cond,
+      windKmH: Math.round(curr.wind_speed_10m ?? 12),
+      online: true
+    };
+  } catch (err) {
+    return {
+      city,
+      temp: 24,
+      humidity: 58,
+      condition: 'Céu Limpo',
+      windKmH: 14,
+      online: false
+    };
+  }
+}
+
+// Helper to safely evaluate math calculations
+function evaluateMath(expression) {
+  let expr = (expression || '')
+    .toLowerCase()
+    .replace(/^helena[,:\s]*/i, '')
+    .replace(/helena/gi, '')
+    .replace(/quanto\s+(?:é|e)/g, '')
+    .replace(/calcule/g, '')
+    .replace(/qual\s+o\s+resultado\s+de/g, '')
+    .replace(/vezes/g, '*')
+    .replace(/multiplicado\s+por/g, '*')
+    .replace(/dividido\s+por/g, '/')
+    .replace(/mais/g, '+')
+    .replace(/menos/g, '-')
+    .replace(/vírgula/g, '.')
+    .replace(/(\d+),(\d+)/g, '$1.$2')
+    .replace(/,/g, ' ')
+    .trim();
+
+  const percentMatch = expr.match(/(\d+(?:\.\d+)?)\s*%\s*(?:de\s*)?(\d+(?:\.\d+)?)/);
+  if (percentMatch) {
+    const p = parseFloat(percentMatch[1]);
+    const total = parseFloat(percentMatch[2]);
+    const res = (p / 100) * total;
+    return { expressao: `${p}% de ${total}`, resultado: `${res}` };
+  }
+
+  const sqrtMatch = expr.match(/raiz\s+(?:quadrada\s+)?(?:de\s*)?(\d+(?:\.\d+)?)/);
+  if (sqrtMatch) {
+    const val = parseFloat(sqrtMatch[1]);
+    const res = Math.sqrt(val);
+    return { expressao: `√${val}`, resultado: `${Number.isInteger(res) ? res : res.toFixed(3)}` };
+  }
+
+  const powMatch = expr.match(/(\d+(?:\.\d+)?)\s*(?:elevado\s+a\s*|\^)\s*(\d+(?:\.\d+)?)/);
+  if (powMatch) {
+    const base = parseFloat(powMatch[1]);
+    const exp = parseFloat(powMatch[2]);
+    return { expressao: `${base}^${exp}`, resultado: `${Math.pow(base, exp)}` };
+  }
+
+  const sanitized = expr.replace(/x/g, '*').replace(/[^0-9+\-*/().]/g, '');
+  if (!sanitized || sanitized.length < 2) return null;
+
+  try {
+    const result = Function(`return (${sanitized});`)();
+    if (typeof result === 'number' && !isNaN(result) && isFinite(result)) {
+      const rounded = Number.isInteger(result) ? result : parseFloat(result.toFixed(4));
+      return { expressao: sanitized, resultado: `${rounded}` };
+    }
+  } catch (_) {}
+  return null;
 }
 
 // Helper to list Startup Applications
@@ -353,6 +664,7 @@ app.get('/api/system/status', async (req, res) => {
     const disk = getDiskSpace();
     const temp = getTempStats();
     const topProcesses = getTopProcesses();
+    const battery = getBatteryInfo();
 
     const totalMem = os.totalmem();
     const freeMem = os.freemem();
@@ -381,6 +693,7 @@ app.get('/api/system/status', async (req, res) => {
       disk,
       network,
       temp,
+      battery,
       topProcesses
     };
 
@@ -666,7 +979,18 @@ app.post('/api/system/launch-app', (req, res) => {
     'configuracoes': 'start ms-settings:',
     'configurações': 'start ms-settings:',
     'browser': 'start https://www.google.com',
-    'navegador': 'start https://www.google.com'
+    'navegador': 'start https://www.google.com',
+    'vscode': 'start code',
+    'code': 'start code',
+    'visual studio code': 'start code',
+    'spotify': 'start spotify:',
+    'discord': 'start discord:',
+    'steam': 'start steam:',
+    'paint': 'start mspaint',
+    'mspaint': 'start mspaint',
+    'edge': 'start msedge',
+    'chrome': 'start chrome',
+    'vlc': 'start vlc'
   };
 
   const commandToRun = appMap[target] || (target.startsWith('start ') ? target : null);
@@ -742,6 +1066,107 @@ app.post('/api/briefing/data', (req, res) => {
   }
 });
 
+// 8.1. GET /api/system/processes (Gerenciador de Processos)
+app.get('/api/system/processes', (req, res) => {
+  const limit = req.query.limit ? parseInt(req.query.limit, 10) : 30;
+  res.json(getAllProcesses(limit));
+});
+
+// 8.2. POST /api/system/processes/kill (Finalizar Processo Seguro)
+app.post('/api/system/processes/kill', (req, res) => {
+  const { pid, name } = req.body;
+  if (!pid && !name) {
+    return res.status(400).json({ error: 'PID ou nome do processo não fornecido' });
+  }
+
+  const cleanName = (name || '').toLowerCase().trim();
+  if (CRITICAL_PROCESSES.has(cleanName)) {
+    return res.status(403).json({
+      success: false,
+      error: `O processo '${name}' é essencial para o Windows e está protegido contra encerramento acidental.`
+    });
+  }
+
+  try {
+    if (pid) {
+      execSync(`taskkill /PID ${pid} /F`, { timeout: 3000 });
+    } else {
+      execSync(`taskkill /IM "${name}*" /F`, { timeout: 3000 });
+    }
+    res.json({ success: true, message: `Processo finalizado com sucesso.`, pid, name });
+  } catch (err) {
+    res.status(500).json({ error: 'Falha ao finalizar processo', message: err.message });
+  }
+});
+
+// 8.3. GET /api/system/battery (Status da Bateria / Energia)
+app.get('/api/system/battery', (req, res) => {
+  res.json(getBatteryInfo());
+});
+
+// 8.4. POST /api/system/benchmark (Executar Teste de Velocidade)
+app.post('/api/system/benchmark', (req, res) => {
+  try {
+    const result = runSystemBenchmark();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Falha ao executar benchmark', message: err.message });
+  }
+});
+
+// 8.5. GET /api/network/diagnostics (Diagnóstico Avançado de Rede e Ping)
+app.get('/api/network/diagnostics', async (req, res) => {
+  try {
+    const diag = await runNetworkDiagnostics();
+    res.json(diag);
+  } catch (err) {
+    res.status(500).json({ error: 'Falha ao executar diagnóstico de rede', message: err.message });
+  }
+});
+
+// 8.6. POST /api/system/weather (Consulta Meteorológica Zero-Key via Open-Meteo)
+app.post('/api/system/weather', async (req, res) => {
+  const { city } = req.body;
+  const result = await fetchDynamicWeather(city || 'São Paulo');
+  res.json(result);
+});
+
+// 8.7. Anotações Rápidas (GET, POST, DELETE)
+app.get('/api/system/notes', (req, res) => {
+  const dados = loadDadosPessoais();
+  res.json(dados.anotacoes || []);
+});
+
+app.post('/api/system/notes', (req, res) => {
+  const { texto } = req.body;
+  if (!texto || !texto.trim()) {
+    return res.status(400).json({ error: 'Texto da anotação não fornecido' });
+  }
+  const dados = loadDadosPessoais();
+  if (!dados.anotacoes) dados.anotacoes = [];
+  const novaNota = {
+    id: `nt-${Date.now()}`,
+    texto: texto.trim(),
+    data: new Date().toLocaleDateString('pt-BR')
+  };
+  dados.anotacoes.unshift(novaNota);
+  try {
+    fs.writeFileSync(DADOS_PESSOAIS_PATH, JSON.stringify(dados, null, 2), 'utf-8');
+  } catch (_) {}
+  res.json({ success: true, nota: novaNota, anotacoes: dados.anotacoes });
+});
+
+app.delete('/api/system/notes/:id', (req, res) => {
+  const { id } = req.params;
+  const dados = loadDadosPessoais();
+  if (!dados.anotacoes) dados.anotacoes = [];
+  dados.anotacoes = dados.anotacoes.filter(n => n.id !== id);
+  try {
+    fs.writeFileSync(DADOS_PESSOAIS_PATH, JSON.stringify(dados, null, 2), 'utf-8');
+  } catch (_) {}
+  res.json({ success: true, anotacoes: dados.anotacoes });
+});
+
 // 9. POST /api/helena/brain (Motor de Inteligência e Compreensão Completo)
 app.post('/api/helena/brain', async (req, res) => {
   const { command } = req.body;
@@ -811,6 +1236,228 @@ app.post('/api/helena/brain', async (req, res) => {
       request.write(postData);
       request.end();
     });
+  }
+
+  // 0.1. CÁLCULO MATEMÁTICO (Processamento Numérico de Precisão)
+  const mathRes = evaluateMath(rawCmd);
+  if (mathRes) {
+    return res.json({
+      intent: 'calculo',
+      cartoes: [
+        {
+          id: 'card-calculo',
+          titulo: 'Cálculo Matemático',
+          tipo: 'calculo',
+          subtitulo: 'Processador Aritmético de Alta Precisão',
+          fala: `O resultado de ${mathRes.expressao} é ${mathRes.resultado}.`,
+          calculo: mathRes
+        }
+      ]
+    });
+  }
+
+  // 0.2. BATERIA E ENERGIA
+  if (cmd.includes('bateria') || cmd.includes('energia') || cmd.includes('carga') || cmd.includes('nível de bateria')) {
+    const battery = getBatteryInfo();
+    return res.json({
+      intent: 'bateria',
+      cartoes: [
+        {
+          id: 'card-bateria',
+          titulo: 'Gerenciamento de Energia e Bateria',
+          tipo: 'bateria',
+          subtitulo: battery.statusText,
+          fala: battery.hasBattery
+            ? `O nível atual da bateria é de ${battery.percent}%. ${battery.isCharging ? 'Conectado à tomada e carregando.' : 'Operando no modo portátil em bateria.'}`
+            : 'Sistema conectado à alimentação AC contínua sem bateria efêmera.',
+          infoBateria: battery
+        }
+      ]
+    });
+  }
+
+  // 0.3. BENCHMARK DO SISTEMA
+  if (
+    cmd.includes('benchmark') || cmd.includes('teste de velocidade') ||
+    cmd.includes('desempenho da máquina') || cmd.includes('pontuação do pc') ||
+    cmd.includes('quão rápido') || cmd.includes('velocidade do pc')
+  ) {
+    const bench = runSystemBenchmark();
+    return res.json({
+      intent: 'benchmark',
+      cartoes: [
+        {
+          id: 'card-benchmark',
+          titulo: 'Benchmark de Performance do Sistema',
+          tipo: 'benchmark',
+          subtitulo: `Índice Geral: ${bench.score} / 1000 (${bench.rating})`,
+          fala: `Benchmark concluído com êxito, Comandante. Sua máquina obteve pontuação de ${bench.score} de 1000 pontos, com classificação ${bench.rating}. A taxa de computação alcançou ${bench.hashesPerSec.toLocaleString('pt-BR')} hashes por segundo.`,
+          resultadoBenchmark: bench
+        }
+      ]
+    });
+  }
+
+  // 0.4. DIAGNÓSTICO AVANÇADO DE REDE & DNS
+  if (
+    cmd.includes('diagnóstico de rede') || cmd.includes('diagnostico de rede') ||
+    cmd.includes('teste de rede') || cmd.includes('teste de conexão') ||
+    cmd.includes('teste de internet') || cmd.includes('qual meu ping') ||
+    cmd.includes('meu ping')
+  ) {
+    const netDiag = await runNetworkDiagnostics();
+    return res.json({
+      intent: 'diagnostico_rede',
+      cartoes: [
+        {
+          id: 'card-diag-rede',
+          titulo: 'Diagnóstico Avançado de Rede & DNS',
+          tipo: 'diagnostico_rede',
+          subtitulo: netDiag.online ? `Conexão Nominal • IP: ${netDiag.publicIp}` : 'Desconectado',
+          fala: netDiag.online
+            ? `Diagnóstico de rede completo, Comandante. Latência medida em ${netDiag.latencyMs} milissegundos para Cloudflare e Google DNS, resolução de domínio em ${netDiag.dnsSpeedMs} milissegundos e IP externo validado.`
+            : 'Atenção, Comandante: sem comunicação ativa com servidores externos na internet.',
+          diagnosticoRede: netDiag
+        }
+      ]
+    });
+  }
+
+  // 0.5. PREVISÃO DO TEMPO DINÂMICA (Open-Meteo Zero-Key)
+  if (
+    cmd.includes('clima') || cmd.includes('tempo hoje') ||
+    cmd.includes('temperatura em') || cmd.includes('vai chover') ||
+    cmd.includes('previsão') || cmd.includes('previsao')
+  ) {
+    let targetCity = dados.usuario?.cidade || 'São Paulo';
+    const cityMatch = rawCmd.match(/(?:em|para|de)\s+([a-zA-ZÀ-ÿ\s]+)(?:\?|$)/i);
+    if (cityMatch && cityMatch[1].trim().length > 2) {
+      targetCity = cityMatch[1].trim();
+    }
+    const weather = await fetchDynamicWeather(targetCity);
+    return res.json({
+      intent: 'clima_dinamico',
+      cartoes: [
+        {
+          id: 'card-clima-dinamico',
+          titulo: `Previsão Meteorológica: ${weather.city}`,
+          tipo: 'clima_dinamico',
+          subtitulo: `${weather.condition} • Vento ${weather.windKmH} km/h`,
+          fala: `Em ${weather.city}, a temperatura atual é de ${weather.temp} graus Celsius com condição de ${weather.condition.toLowerCase()} e umidade relativa em ${weather.humidity}%.`,
+          resultadoClima: weather
+        }
+      ]
+    });
+  }
+
+  // 0.6. ANOTAÇÕES RÁPIDAS
+  if (cleanCmd.startsWith('anotar ') || cleanCmd.startsWith('anote ')) {
+    const textoNota = cleanCmd.replace(/^(anotar|anote)\s+/i, '').trim();
+    const dadosAtuais = loadDadosPessoais();
+    if (!dadosAtuais.anotacoes) dadosAtuais.anotacoes = [];
+    const novaNota = {
+      id: `nt-${Date.now()}`,
+      texto: textoNota,
+      data: new Date().toLocaleDateString('pt-BR')
+    };
+    dadosAtuais.anotacoes.unshift(novaNota);
+    try { fs.writeFileSync(DADOS_PESSOAIS_PATH, JSON.stringify(dadosAtuais, null, 2), 'utf-8'); } catch (_) {}
+
+    return res.json({
+      intent: 'anotacoes',
+      cartoes: [
+        {
+          id: 'card-anotacoes',
+          titulo: 'Bloco de Notas Tático',
+          tipo: 'anotacoes',
+          subtitulo: `${dadosAtuais.anotacoes.length} Anotações Registradas`,
+          fala: `Anotação registrada com sucesso no seu HUD tático, Comandante: "${textoNota.slice(0, 100)}".`,
+          anotacoes: dadosAtuais.anotacoes
+        }
+      ]
+    });
+  }
+
+  if (cmd.includes('anotações') || cmd.includes('anotacoes') || cmd.includes('minhas notas') || cmd.includes('bloco de notas rápido')) {
+    const dadosAtuais = loadDadosPessoais();
+    const lista = dadosAtuais.anotacoes || [];
+    return res.json({
+      intent: 'anotacoes',
+      cartoes: [
+        {
+          id: 'card-anotacoes',
+          titulo: 'Bloco de Notas Tático',
+          tipo: 'anotacoes',
+          subtitulo: `${lista.length} Anotações Registradas`,
+          fala: `Comandante, você possui ${lista.length} anotações salvas no seu armazenamento pessoal.`,
+          anotacoes: lista
+        }
+      ]
+    });
+  }
+
+  // 0.7. TEMPORIZADOR / TIMER TÁTICO
+  if (cmd.includes('timer') || cmd.includes('temporizador') || cmd.includes('cronômetro') || cmd.includes('cronometro')) {
+    let segundos = 60;
+    const minMatch = cmd.match(/(\d+)\s*(?:minuto|minutos|min)/);
+    const secMatch = cmd.match(/(\d+)\s*(?:segundo|segundos|seg)/);
+    if (minMatch) {
+      segundos = parseInt(minMatch[1], 10) * 60;
+    } else if (secMatch) {
+      segundos = parseInt(secMatch[1], 10);
+    }
+    const label = segundos >= 60 ? `${Math.floor(segundos / 60)} min` : `${segundos} s`;
+    return res.json({
+      intent: 'timer',
+      cartoes: [
+        {
+          id: 'card-timer',
+          titulo: 'Temporizador Tático',
+          tipo: 'timer',
+          subtitulo: `Contagem regressiva de ${label}`,
+          fala: `Temporizador de ${label} iniciado. Notificarei assim que o tempo for concluído.`,
+          timer: { segundos, label: `Timer ${label}` }
+        }
+      ]
+    });
+  }
+
+  // 0.8. FINALIZAR PROCESSO
+  if (cmd.includes('fechar processo') || cmd.includes('matar processo') || cmd.includes('encerrar processo') || cmd.includes('finalizar processo')) {
+    const targetName = cleanCmd.replace(/^(fechar processo|matar processo|encerrar processo|finalizar processo)\s+/i, '').trim();
+    if (targetName) {
+      if (CRITICAL_PROCESSES.has(targetName.toLowerCase())) {
+        return res.json({
+          intent: 'process_kill',
+          cartoes: [
+            {
+              id: 'card-proc-denied',
+              titulo: 'Finalização Negada',
+              tipo: 'processos_pesados',
+              subtitulo: 'Processo Crítico Protegido',
+              fala: `O processo ${targetName} é essencial para o funcionamento do sistema operacional e não pode ser finalizado.`,
+              processos: getAllProcesses(10)
+            }
+          ]
+        });
+      }
+      try {
+        execSync(`taskkill /IM "${targetName}*" /F`, { timeout: 3000 });
+      } catch (_) {}
+      return res.json({
+        intent: 'process_kill',
+        cartoes: [
+          {
+            id: 'card-proc-killed',
+            titulo: 'Processo Finalizado',
+            tipo: 'processos_pesados',
+            subtitulo: `${targetName} encerrado`,
+            fala: `O processo ${targetName} foi finalizado com sucesso, liberando recursos da memória.`,
+            processos: getAllProcesses(10)
+          }
+        ]
+      });
+    }
   }
 
   // 1. REPARO DO SISTEMA

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { PersonalData, StartupApp, RepairReport } from '../types';
+import type { PersonalData, StartupApp, RepairReport, ProcessItem, BenchmarkResult, NetworkDiagnostics } from '../types';
 import {
   X,
   Save,
@@ -15,17 +15,39 @@ import {
   Power,
   Wrench,
   CheckCircle2,
-  Rocket
+  Rocket,
+  Activity,
+  Gauge,
+  RefreshCw,
+  AlertTriangle,
+  ShieldCheck,
+  Sliders,
+  Battery,
+  BatteryCharging,
+  Globe
 } from 'lucide-react';
 import { soundSynth } from '../audio/synth';
 import { speechController, JARVIS_VOICE_PRESETS } from '../audio/speech';
+
+export type SettingsTabType =
+  | 'jarvis_voz'
+  | 'processos'
+  | 'benchmark'
+  | 'diagnostico_rede'
+  | 'startup'
+  | 'reparo'
+  | 'rede'
+  | 'perfil'
+  | 'agenda'
+  | 'prioridades'
+  | 'raw';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   personalData: PersonalData | null;
   onSave: (newData: PersonalData) => Promise<void>;
-  initialTab?: 'jarvis_voz' | 'startup' | 'reparo' | 'rede' | 'perfil' | 'agenda' | 'prioridades' | 'raw';
+  initialTab?: SettingsTabType;
 }
 
 const DEFAULT_FALLBACK_DATA: PersonalData = {
@@ -58,7 +80,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   initialTab = 'jarvis_voz'
 }) => {
   const [data, setData] = useState<PersonalData>(personalData || DEFAULT_FALLBACK_DATA);
-  const [activeTab, setActiveTab] = useState<'jarvis_voz' | 'startup' | 'reparo' | 'rede' | 'perfil' | 'agenda' | 'prioridades' | 'raw'>(initialTab);
+  const [activeTab, setActiveTab] = useState<SettingsTabType>(initialTab);
   const [saving, setSaving] = useState<boolean>(false);
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
   const [rawJson, setRawJson] = useState<string>(JSON.stringify(personalData || DEFAULT_FALLBACK_DATA, null, 2));
@@ -67,6 +89,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [activePresetId, setActivePresetId] = useState<string>(speechController.activePresetId);
   const [holographicEffect, setHolographicEffect] = useState<boolean>(speechController.holographicEffect);
   const [previewingId, setPreviewingId] = useState<string | null>(null);
+  const [customRate, setCustomRateState] = useState<string>(speechController.customRate);
+  const [customPitch, setCustomPitchState] = useState<string>(speechController.customPitch);
+
+  // Processes state
+  const [processesList, setProcessesList] = useState<ProcessItem[]>([]);
+  const [loadingProcesses, setLoadingProcesses] = useState<boolean>(false);
+  const [killingPid, setKillingPid] = useState<number | null>(null);
+
+  // Benchmark state
+  const [benchResult, setBenchResult] = useState<BenchmarkResult | null>(null);
+  const [runningBench, setRunningBench] = useState<boolean>(false);
+
+  // Diagnostics state
+  const [diagResult, setDiagResult] = useState<NetworkDiagnostics | null>(null);
+  const [runningDiag, setRunningDiag] = useState<boolean>(false);
 
   // Startup Apps state
   const [startupApps, setStartupApps] = useState<StartupApp[]>([]);
@@ -191,6 +228,87 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
+  const fetchProcesses = async () => {
+    setLoadingProcesses(true);
+    try {
+      const res = await fetch('/api/system/processes?limit=30');
+      if (res.ok) {
+        const data = await res.json();
+        setProcessesList(data);
+      }
+    } catch (_) {}
+    finally {
+      setLoadingProcesses(false);
+    }
+  };
+
+  const handleKillProcess = async (proc: ProcessItem) => {
+    if (proc.isCritical) return;
+    setKillingPid(proc.pid);
+    soundSynth.playTelemetryBeep();
+    try {
+      const res = await fetch('/api/system/processes/kill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pid: proc.pid, name: proc.name })
+      });
+      if (res.ok) {
+        setProcessesList(prev => prev.filter(p => p.pid !== proc.pid));
+        soundSynth.playBiometricConfirmed();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Falha ao finalizar processo');
+      }
+    } catch (_) {}
+    finally {
+      setKillingPid(null);
+    }
+  };
+
+  const handleRunBench = async () => {
+    setRunningBench(true);
+    soundSynth.playOptimizationSurge();
+    try {
+      const res = await fetch('/api/system/benchmark', { method: 'POST' });
+      if (res.ok) {
+        const bench = await res.json();
+        setBenchResult(bench);
+        soundSynth.playBiometricConfirmed();
+        speechController.speak(`Benchmark concluído. Pontuação: ${bench.score} de 1000 pontos com classificação ${bench.rating}.`);
+      }
+    } catch (_) {}
+    finally {
+      setRunningBench(false);
+    }
+  };
+
+  const handleRunDiag = async () => {
+    setRunningDiag(true);
+    soundSynth.playTelemetryBeep();
+    try {
+      const res = await fetch('/api/network/diagnostics');
+      if (res.ok) {
+        const diag = await res.json();
+        setDiagResult(diag);
+        soundSynth.playBiometricConfirmed();
+        speechController.speak(`Diagnóstico concluído. Latência de rede em ${diag.latencyMs} milissegundos.`);
+      }
+    } catch (_) {}
+    finally {
+      setRunningDiag(false);
+    }
+  };
+
+  const handleRateChange = (newRate: string) => {
+    setCustomRateState(newRate);
+    speechController.setCustomRate(newRate);
+  };
+
+  const handlePitchChange = (newPitch: string) => {
+    setCustomPitchState(newPitch);
+    speechController.setCustomPitch(newPitch);
+  };
+
   const handleCopyNetworkUrl = () => {
     if (networkInfo?.networkUrl) {
       navigator.clipboard.writeText(networkInfo.networkUrl);
@@ -237,12 +355,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 my-3 border-b border-purple-500/20 pb-2 text-xs flex-wrap">
+        <div className="flex gap-1.5 my-3 border-b border-purple-500/20 pb-2 text-xs flex-wrap">
           {(
             [
-              { id: 'jarvis_voz', label: 'Voz da Helena' },
-              { id: 'startup', label: 'Inicialização (Boot)' },
-              { id: 'reparo', label: 'Conserto & Reparo' },
+              { id: 'jarvis_voz', label: 'Voz Helena' },
+              { id: 'processos', label: 'Processos' },
+              { id: 'benchmark', label: 'Benchmark' },
+              { id: 'diagnostico_rede', label: 'Diagnóstico' },
+              { id: 'startup', label: 'Boot' },
+              { id: 'reparo', label: 'Reparo' },
               { id: 'rede', label: 'Rede Local' },
               { id: 'perfil', label: 'Perfil' },
               { id: 'agenda', label: 'Agenda' },
@@ -254,7 +375,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               key={tab.id}
               onClick={() => {
                 soundSynth.playTelemetryBeep();
-                setActiveTab(tab.id as any);
+                setActiveTab(tab.id);
+                if (tab.id === 'processos' && processesList.length === 0) {
+                  fetchProcesses();
+                }
               }}
               className={`px-2.5 py-1 rounded-lg uppercase tracking-wider font-semibold transition-all ${
                 activeTab === tab.id
@@ -374,6 +498,293 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   );
                 })}
               </div>
+
+              {/* Sliders de Calibração */}
+              <div className="p-3.5 rounded-xl border border-cyan-500/40 bg-slate-900/80 space-y-3">
+                <div className="flex items-center gap-2 text-cyan-300 font-bold text-xs">
+                  <Sliders className="w-4 h-4 text-cyan-400" />
+                  <span>Calibração Fina Acústica</span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-slate-400">Velocidade da Fala:</span>
+                    <span className="text-cyan-300 font-bold">{customRate}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="-20"
+                    max="20"
+                    step="5"
+                    value={parseInt(customRate.replace('%', ''), 10) || 0}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      const formatted = val >= 0 ? `+${val}%` : `${val}%`;
+                      handleRateChange(formatted);
+                    }}
+                    className="w-full accent-cyan-400 h-1.5 bg-slate-950 rounded cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[9px] text-slate-500">
+                    <span>Mais Lenta (-20%)</span>
+                    <span>Padrão (0%)</span>
+                    <span>Mais Rápida (+20%)</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-slate-400">Tom da Voz (Pitch):</span>
+                    <span className="text-purple-300 font-bold">{customPitch}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="-10"
+                    max="10"
+                    step="2"
+                    value={parseInt(customPitch.replace('Hz', ''), 10) || 0}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      const formatted = val >= 0 ? `+${val}Hz` : `${val}Hz`;
+                      handlePitchChange(formatted);
+                    }}
+                    className="w-full accent-purple-400 h-1.5 bg-slate-950 rounded cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[9px] text-slate-500">
+                    <span>Mais Grave (-10Hz)</span>
+                    <span>Natural (0Hz)</span>
+                    <span>Mais Agudo (+10Hz)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: GERENCIADOR DE PROCESSOS */}
+          {activeTab === 'processos' && (
+            <div className="space-y-3">
+              <div className="p-3.5 rounded-xl border border-cyan-500/40 bg-cyan-950/30 flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2 text-cyan-300 font-bold text-sm mb-0.5">
+                    <Activity className="w-4 h-4 text-cyan-400" />
+                    <span>Gerenciador de Processos Ativos</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400">
+                    Processos com maior consumo de memória física. Itens críticos do Windows são protegidos contra encerramento.
+                  </p>
+                </div>
+                <button
+                  onClick={fetchProcesses}
+                  disabled={loadingProcesses}
+                  className="px-3 py-1.5 rounded-lg border border-cyan-400/50 bg-cyan-950/60 hover:bg-cyan-900 text-cyan-300 flex items-center gap-1.5 text-xs font-bold transition-all disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingProcesses ? 'animate-spin' : ''}`} />
+                  <span>{loadingProcesses ? 'Atualizando...' : 'Atualizar'}</span>
+                </button>
+              </div>
+
+              {processesList.length === 0 && !loadingProcesses ? (
+                <div className="text-center py-6">
+                  <p className="text-slate-400 text-xs mb-3">Nenhum processo carregado na lista.</p>
+                  <button
+                    onClick={fetchProcesses}
+                    className="px-4 py-1.5 rounded-lg border border-cyan-400 bg-cyan-950 text-cyan-300 text-xs font-bold"
+                  >
+                    Carregar Processos
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
+                  {processesList.map((proc) => (
+                    <div
+                      key={proc.pid}
+                      className="p-2.5 rounded-lg border border-purple-500/30 bg-slate-900/60 flex items-center justify-between hover:border-purple-400 transition-all"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        {proc.isCritical ? (
+                          <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                        ) : (
+                          <Activity className="w-4 h-4 text-cyan-400 shrink-0" />
+                        )}
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-white text-xs truncate max-w-[200px]">
+                              {proc.name}
+                            </span>
+                            <span className="text-[9px] text-slate-500 font-mono">PID {proc.pid}</span>
+                          </div>
+                          <span className="text-[10px] text-purple-300/80 font-mono">
+                            {proc.memoryMB} MB RAM
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {proc.isCritical ? (
+                          <span className="px-2 py-0.5 rounded text-[9px] font-bold border border-emerald-500/40 bg-emerald-950/40 text-emerald-300">
+                            PROTEGIDO
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleKillProcess(proc)}
+                            disabled={killingPid === proc.pid}
+                            className="px-2.5 py-1 rounded text-[10px] font-bold border border-rose-500/50 bg-rose-950/50 hover:bg-rose-900 text-rose-300 hover:text-white transition-all disabled:opacity-50"
+                          >
+                            {killingPid === proc.pid ? 'ENCERRANDO...' : 'FINALIZAR'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB: BENCHMARK DO SISTEMA */}
+          {activeTab === 'benchmark' && (
+            <div className="space-y-4">
+              <div className="p-3.5 rounded-xl border border-purple-500/40 bg-purple-950/30 flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2 text-cyan-300 font-bold text-sm mb-0.5">
+                    <Gauge className="w-4 h-4 text-cyan-400" />
+                    <span>Benchmark de Performance de Hardware</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400">
+                    Bateria de computação aritmética de números primos, SHA-256 e taxa de transferência de memória.
+                  </p>
+                </div>
+                <button
+                  onClick={handleRunBench}
+                  disabled={runningBench}
+                  className="px-3.5 py-1.5 rounded-lg border border-cyan-400 bg-cyan-950 hover:bg-cyan-900 text-cyan-300 flex items-center gap-2 text-xs font-bold transition-all shadow-[0_0_15px_rgba(0,240,255,0.3)] disabled:opacity-50"
+                >
+                  <Rocket className={`w-3.5 h-3.5 ${runningBench ? 'animate-bounce' : ''}`} />
+                  <span>{runningBench ? 'AVALIANDO...' : 'EXECUTAR TESTE'}</span>
+                </button>
+              </div>
+
+              {benchResult ? (
+                <div className="space-y-3">
+                  <div className="p-4 rounded-xl border-2 border-cyan-400/60 bg-gradient-to-r from-cyan-950/40 via-purple-950/40 to-slate-900/60 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-cyan-300 tracking-widest uppercase">PONTUAÇÃO GERAL</span>
+                      <div className="text-3xl font-extrabold font-mono text-cyan-300 mt-0.5 flex items-baseline gap-1.5">
+                        <span>{benchResult.score}</span>
+                        <span className="text-xs text-slate-400">/ 1000 PONTOS</span>
+                      </div>
+                    </div>
+                    <span className="px-3 py-1.5 rounded-lg text-xs font-bold border border-emerald-400 bg-emerald-950 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.35)]">
+                      {benchResult.rating}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div className="p-3 rounded-lg border border-purple-500/30 bg-slate-900/60">
+                      <span className="text-slate-400 block mb-0.5">CPU SPEED (PRIMOS)</span>
+                      <span className="text-cyan-300 font-bold text-sm">{benchResult.cpuSpeedMs} ms</span>
+                    </div>
+                    <div className="p-3 rounded-lg border border-purple-500/30 bg-slate-900/60">
+                      <span className="text-slate-400 block mb-0.5">TAXA HASH SHA-256</span>
+                      <span className="text-purple-300 font-bold text-sm">{benchResult.hashesPerSec.toLocaleString('pt-BR')} h/s</span>
+                    </div>
+                    <div className="p-3 rounded-lg border border-purple-500/30 bg-slate-900/60">
+                      <span className="text-slate-400 block mb-0.5">THROUGHPUT DE RAM</span>
+                      <span className="text-emerald-400 font-bold text-sm">{benchResult.ramThroughputMBps} MB/s</span>
+                    </div>
+                    <div className="p-3 rounded-lg border border-purple-500/30 bg-slate-900/60">
+                      <span className="text-slate-400 block mb-0.5">DISCO I/O SPEED</span>
+                      <span className="text-amber-400 font-bold text-sm">{benchResult.diskThroughputMBps} MB/s</span>
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 rounded-lg border border-purple-500/20 bg-slate-900/40 text-[10px] text-slate-400 flex justify-between">
+                    <span>{benchResult.cpuModel}</span>
+                    <span className="text-cyan-300">{benchResult.nucleos} Núcleos Virtuais</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 border border-dashed border-purple-500/30 rounded-xl">
+                  <Gauge className="w-10 h-10 text-cyan-400/60 mx-auto mb-2" />
+                  <p className="text-slate-300 text-xs font-bold">Nenhum benchmark registrado nesta sessão.</p>
+                  <p className="text-slate-500 text-[10px] mt-1">Clique no botão acima para iniciar a avaliação em tempo real.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB: DIAGNÓSTICO DE REDE */}
+          {activeTab === 'diagnostico_rede' && (
+            <div className="space-y-4">
+              <div className="p-3.5 rounded-xl border border-cyan-500/40 bg-cyan-950/30 flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2 text-cyan-300 font-bold text-sm mb-0.5">
+                    <Globe className="w-4 h-4 text-cyan-400" />
+                    <span>Diagnóstico Avançado de Conexão & DNS</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400">
+                    Medição de tempo de ida e volta (RTT) para servidores de borda globais e resolução DNS.
+                  </p>
+                </div>
+                <button
+                  onClick={handleRunDiag}
+                  disabled={runningDiag}
+                  className="px-3.5 py-1.5 rounded-lg border border-cyan-400 bg-cyan-950 hover:bg-cyan-900 text-cyan-300 flex items-center gap-2 text-xs font-bold transition-all shadow-[0_0_15px_rgba(0,240,255,0.3)] disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${runningDiag ? 'animate-spin' : ''}`} />
+                  <span>{runningDiag ? 'TESTANDO...' : 'TESTAR REDE'}</span>
+                </button>
+              </div>
+
+              {diagResult ? (
+                <div className="space-y-3">
+                  <div className="p-3.5 rounded-xl border border-cyan-400/50 bg-slate-900/70 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <Wifi className={`w-5 h-5 ${diagResult.online ? 'text-emerald-400' : 'text-rose-500'}`} />
+                      <div>
+                        <span className="text-xs font-bold text-white">STATUS DO ENLACE</span>
+                        <p className="text-[10px] text-slate-400">
+                          {diagResult.online ? 'Conexão estável com a rede mundial.' : 'Falha na comunicação de borda.'}
+                        </p>
+                      </div>
+                    </div>
+                    <span className={`px-2.5 py-1 rounded text-xs font-bold border ${diagResult.online ? 'border-emerald-500 bg-emerald-950 text-emerald-300' : 'border-rose-500 bg-rose-950 text-rose-300'}`}>
+                      {diagResult.online ? 'ONLINE' : 'OFFLINE'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 text-center text-[10px]">
+                    <div className="p-3 rounded-lg border border-purple-500/30 bg-slate-900/60">
+                      <span className="text-slate-400 block mb-0.5">CLOUDFLARE 1.1.1.1</span>
+                      <span className="text-cyan-300 font-bold text-sm">{diagResult.pingCloudflare} ms</span>
+                    </div>
+                    <div className="p-3 rounded-lg border border-purple-500/30 bg-slate-900/60">
+                      <span className="text-slate-400 block mb-0.5">GOOGLE 8.8.8.8</span>
+                      <span className="text-cyan-300 font-bold text-sm">{diagResult.pingGoogle} ms</span>
+                    </div>
+                    <div className="p-3 rounded-lg border border-purple-500/30 bg-slate-900/60">
+                      <span className="text-slate-400 block mb-0.5">RESOLUÇÃO DNS</span>
+                      <span className="text-purple-300 font-bold text-sm">{diagResult.dnsSpeedMs} ms</span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-lg border border-purple-500/30 bg-slate-900/50 text-[11px] space-y-1 font-mono">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Endereço IP Externo (WAN):</span>
+                      <span className="text-cyan-300 font-bold">{diagResult.publicIp}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Endereço IP Local (LAN):</span>
+                      <span className="text-purple-300 font-bold">{diagResult.localIp}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 border border-dashed border-cyan-500/30 rounded-xl">
+                  <Globe className="w-10 h-10 text-cyan-400/60 mx-auto mb-2" />
+                  <p className="text-slate-300 text-xs font-bold">Nenhum teste de rede recente.</p>
+                  <p className="text-slate-500 text-[10px] mt-1">Clique em "Testar Rede" para medir latência e resolução DNS.</p>
+                </div>
+              )}
             </div>
           )}
 

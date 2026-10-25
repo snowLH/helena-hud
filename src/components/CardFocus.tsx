@@ -11,7 +11,13 @@ import {
   Power,
   ExternalLink,
   Globe,
-  Rocket
+  Rocket,
+  Activity,
+  Battery,
+  BatteryCharging,
+  Calculator,
+  Clock,
+  FileText
 } from 'lucide-react';
 
 interface CardFocusProps {
@@ -402,6 +408,189 @@ export const CardFocus: React.FC<CardFocusProps> = ({ card, isSpeaking, onNext }
                 <span>Origem do Processamento:</span>
                 <span className="text-cyan-300 font-bold">{card.motor}</span>
               </div>
+            )}
+          </div>
+        )}
+
+        {/* 13. Benchmark de Performance */}
+        {card.tipo === 'benchmark' && card.resultadoBenchmark && (
+          <div className="space-y-3">
+            <div className="p-3.5 rounded-xl border border-cyan-400/50 bg-gradient-to-r from-cyan-950/40 via-purple-950/40 to-slate-900/60 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] text-cyan-300 tracking-widest uppercase">ÍNDICE DE PERFORMANCE</span>
+                <div className="text-2xl font-bold font-mono text-cyan-300 flex items-baseline gap-1">
+                  <span>{card.resultadoBenchmark.score}</span>
+                  <span className="text-xs text-slate-400">/ 1000</span>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-md text-xs font-bold border border-emerald-400/60 bg-emerald-950/60 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.3)]">
+                {card.resultadoBenchmark.rating}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-[10px]">
+              <div className="p-2.5 rounded-lg border border-purple-500/30 bg-slate-900/50">
+                <span className="text-slate-400 block mb-0.5">CPU SPEED (PRIMES)</span>
+                <span className="text-cyan-300 font-bold text-xs">{card.resultadoBenchmark.cpuSpeedMs} ms</span>
+              </div>
+              <div className="p-2.5 rounded-lg border border-purple-500/30 bg-slate-900/50">
+                <span className="text-slate-400 block mb-0.5">SHA-256 HASH RATE</span>
+                <span className="text-purple-300 font-bold text-xs">{card.resultadoBenchmark.hashesPerSec.toLocaleString('pt-BR')} h/s</span>
+              </div>
+              <div className="p-2.5 rounded-lg border border-purple-500/30 bg-slate-900/50">
+                <span className="text-slate-400 block mb-0.5">RAM THROUGHPUT</span>
+                <span className="text-emerald-400 font-bold text-xs">{card.resultadoBenchmark.ramThroughputMBps} MB/s</span>
+              </div>
+              <div className="p-2.5 rounded-lg border border-purple-500/30 bg-slate-900/50">
+                <span className="text-slate-400 block mb-0.5">DISK I/O RATE</span>
+                <span className="text-amber-400 font-bold text-xs">{card.resultadoBenchmark.diskThroughputMBps} MB/s</span>
+              </div>
+            </div>
+
+            <div className="text-[10px] text-slate-400 flex justify-between px-1">
+              <span>{card.resultadoBenchmark.cpuModel}</span>
+              <span className="text-cyan-400">{card.resultadoBenchmark.nucleos} Núcleos Virtuais</span>
+            </div>
+          </div>
+        )}
+
+        {/* 14. Bateria & Energia */}
+        {card.tipo === 'bateria' && card.infoBateria && (
+          <div className="space-y-3">
+            <div className="p-3.5 rounded-xl border border-cyan-400/50 bg-slate-900/70 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {card.infoBateria.isCharging ? (
+                  <BatteryCharging className="w-8 h-8 text-emerald-400 animate-pulse" />
+                ) : (
+                  <Battery className="w-8 h-8 text-cyan-400" />
+                )}
+                <div>
+                  <span className="text-xs text-slate-400 uppercase tracking-wider">NÍVEL DE CARGA</span>
+                  <div className="text-2xl font-bold font-mono text-cyan-300">{card.infoBateria.percent}%</div>
+                </div>
+              </div>
+              <span className={`px-2.5 py-1 rounded text-[10px] font-bold border ${card.infoBateria.isCharging ? 'border-emerald-500/50 bg-emerald-950/60 text-emerald-300' : 'border-cyan-500/50 bg-cyan-950/60 text-cyan-300'}`}>
+                {card.infoBateria.isCharging ? 'ALIMENTAÇÃO ATIVA' : 'BATERIA'}
+              </span>
+            </div>
+
+            <div className="space-y-1">
+              <div className="w-full h-2 rounded-full bg-slate-900 border border-purple-500/30 overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-500 ${card.infoBateria.percent > 40 ? 'bg-gradient-to-r from-cyan-400 to-emerald-400' : card.infoBateria.percent > 20 ? 'bg-amber-400' : 'bg-red-500'}`}
+                  style={{ width: `${card.infoBateria.percent}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-purple-300/80 text-right">{card.infoBateria.statusText}</p>
+            </div>
+          </div>
+        )}
+
+        {/* 15. Diagnóstico de Rede */}
+        {card.tipo === 'diagnostico_rede' && card.diagnosticoRede && (
+          <div className="space-y-3">
+            <div className="p-3 rounded-xl border border-cyan-500/40 bg-slate-900/70 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Globe className="w-5 h-5 text-cyan-400" />
+                <span className="text-xs font-bold text-slate-200">ESTADO DA CONEXÃO</span>
+              </div>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${card.diagnosticoRede.online ? 'border-emerald-500/50 bg-emerald-950/60 text-emerald-300' : 'border-red-500/50 bg-red-950/60 text-red-300'}`}>
+                {card.diagnosticoRede.online ? 'ONLINE' : 'DESCONECTADO'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 text-[10px] text-center">
+              <div className="p-2.5 rounded-lg border border-purple-500/30 bg-slate-900/50">
+                <span className="text-slate-400 block mb-0.5">CLOUDFLARE</span>
+                <span className="text-cyan-300 font-bold text-xs">{card.diagnosticoRede.pingCloudflare} ms</span>
+              </div>
+              <div className="p-2.5 rounded-lg border border-purple-500/30 bg-slate-900/50">
+                <span className="text-slate-400 block mb-0.5">GOOGLE DNS</span>
+                <span className="text-cyan-300 font-bold text-xs">{card.diagnosticoRede.pingGoogle} ms</span>
+              </div>
+              <div className="p-2.5 rounded-lg border border-purple-500/30 bg-slate-900/50">
+                <span className="text-slate-400 block mb-0.5">DNS LOOKUP</span>
+                <span className="text-purple-300 font-bold text-xs">{card.diagnosticoRede.dnsSpeedMs} ms</span>
+              </div>
+            </div>
+
+            <div className="p-2.5 rounded-lg border border-purple-500/30 bg-slate-900/40 text-[10px] space-y-1">
+              <div className="flex justify-between">
+                <span className="text-slate-400">IP Público (WAN):</span>
+                <span className="text-cyan-300 font-mono">{card.diagnosticoRede.publicIp}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">IP Local (LAN):</span>
+                <span className="text-purple-300 font-mono">{card.diagnosticoRede.localIp}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 16. Cálculo Matemático */}
+        {card.tipo === 'calculo' && card.calculo && (
+          <div className="space-y-3">
+            <div className="p-4 rounded-xl border-2 border-cyan-400/60 bg-gradient-to-br from-cyan-950/40 to-purple-950/40 text-center space-y-1 shadow-[0_0_20px_rgba(0,240,255,0.2)]">
+              <div className="flex items-center justify-center gap-2 text-xs text-slate-400 font-mono mb-1">
+                <Calculator className="w-4 h-4 text-cyan-400" />
+                <span>{card.calculo.expressao}</span>
+              </div>
+              <div className="text-3xl font-extrabold font-mono text-cyan-300 tracking-wider">
+                = {card.calculo.resultado}
+              </div>
+            </div>
+            <p className="text-[10px] text-purple-300/80 text-center">Processado localmente pelo motor aritmético de precisão.</p>
+          </div>
+        )}
+
+        {/* 17. Clima Dinâmico (Open-Meteo) */}
+        {card.tipo === 'clima_dinamico' && card.resultadoClima && (
+          <div className="space-y-3">
+            <div className="p-4 rounded-xl border border-cyan-400/50 bg-gradient-to-r from-slate-900 via-cyan-950/30 to-slate-900 flex items-center justify-between">
+              <div>
+                <span className="text-xs text-slate-400 font-bold uppercase">{card.resultadoClima.city}</span>
+                <div className="text-3xl font-extrabold font-mono text-cyan-300 mt-0.5">
+                  {card.resultadoClima.temp}°C
+                </div>
+                <span className="text-[11px] text-purple-300">{card.resultadoClima.condition}</span>
+              </div>
+              <div className="text-right space-y-1 text-[11px] font-mono">
+                <div className="text-slate-300">Umidade: <span className="text-cyan-300 font-bold">{card.resultadoClima.humidity}%</span></div>
+                <div className="text-slate-300">Vento: <span className="text-cyan-300 font-bold">{card.resultadoClima.windKmH} km/h</span></div>
+                <div className="text-[9px] text-emerald-400">Open-Meteo Satélite</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 18. Temporizador / Timer Tático */}
+        {card.tipo === 'timer' && card.timer && (
+          <div className="p-4 rounded-xl border border-cyan-400/50 bg-slate-900/80 text-center space-y-2">
+            <Clock className="w-7 h-7 text-cyan-400 mx-auto animate-pulse" />
+            <div className="text-2xl font-mono font-bold text-white tracking-widest">
+              {card.timer.label}
+            </div>
+            <p className="text-[11px] text-cyan-300/80">
+              Contagem ativa. Alerta sonoro será emitido na expiração do período.
+            </p>
+          </div>
+        )}
+
+        {/* 19. Anotações Rápidas */}
+        {card.tipo === 'anotacoes' && card.anotacoes && (
+          <div className="space-y-2">
+            {card.anotacoes.length === 0 ? (
+              <p className="text-center text-slate-400 py-4 text-xs">Nenhuma anotação registrada ainda.</p>
+            ) : (
+              card.anotacoes.slice(0, 5).map(nota => (
+                <div key={nota.id} className="p-2.5 rounded-lg border border-purple-500/30 bg-slate-900/60 flex items-start gap-2.5">
+                  <FileText className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-slate-200 text-xs break-words">{nota.texto}</p>
+                    <span className="text-[9px] text-purple-400 font-mono mt-0.5 block">{nota.data}</span>
+                  </div>
+                </div>
+              ))
             )}
           </div>
         )}
