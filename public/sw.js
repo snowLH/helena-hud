@@ -1,4 +1,4 @@
-const CACHE_NAME = 'helena-hud-v1';
+const CACHE_NAME = 'helena-hud-v5';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -36,7 +36,33 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Stale-While-Revalidate for app assets
+  // Network-First for HTML, Scripts, Styles and Navigation to prevent stale UI caching
+  if (
+    event.request.mode === 'navigate' ||
+    event.request.destination === 'document' ||
+    event.request.destination === 'script' ||
+    event.request.destination === 'style' ||
+    url.pathname.endsWith('.html') ||
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.css')
+  ) {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Stale-While-Revalidate for images, fonts, icons
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       const fetchPromise = fetch(event.request)
