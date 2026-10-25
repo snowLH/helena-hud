@@ -15,7 +15,8 @@ import {
   Power,
   Wrench,
   Activity,
-  Gauge
+  Gauge,
+  Terminal
 } from 'lucide-react';
 import { soundSynth } from '../audio/synth';
 import { speechController } from '../audio/speech';
@@ -27,6 +28,7 @@ interface HeaderProps {
   consolidated: boolean;
   briefingOn: boolean;
   onOpenSettings: (tab?: any) => void;
+  onOpenCommands: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -35,7 +37,8 @@ export const Header: React.FC<HeaderProps> = ({
   biometricConfirmed,
   consolidated,
   briefingOn,
-  onOpenSettings
+  onOpenSettings,
+  onOpenCommands
 }) => {
   const [timeStr, setTimeStr] = useState<string>('');
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
@@ -213,6 +216,15 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* 2. Center: Quick System Tools Bar (Adaptive Responsive) */}
       <div className="hidden md:flex items-center gap-1.5">
+        <button
+          onClick={onOpenCommands}
+          title="Abrir Catálogo de Comandos Táticos (Ctrl+K)"
+          className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-cyan-400/60 bg-cyan-950/70 hover:bg-cyan-900/90 hover:border-cyan-300 text-[10px] text-cyan-300 hover:text-white font-mono transition-all cursor-pointer shadow-[0_0_12px_rgba(0,240,255,0.3)]"
+        >
+          <Terminal className="w-3 h-3 text-cyan-400 animate-pulse" />
+          <span className="font-semibold hidden lg:inline">COMANDOS</span>
+        </button>
+
         <button
           onClick={() => onOpenSettings('processos')}
           title="Gerenciador de Processos e Memória (Task Manager)"

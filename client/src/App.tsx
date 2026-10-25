@@ -16,6 +16,7 @@ import { BottomDock } from './components/BottomDock';
 import { CommandBar } from './components/CommandBar';
 import { ConsolidationOverlay } from './components/ConsolidationOverlay';
 import { SettingsModal, type SettingsTabType } from './components/SettingsModal';
+import { CommandPaletteModal } from './components/CommandPaletteModal';
 import { soundSynth } from './audio/synth';
 import { speechController } from './audio/speech';
 
@@ -40,6 +41,7 @@ export function App() {
 
   // UI Modals & Processing
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [isCommandsOpen, setIsCommandsOpen] = useState<boolean>(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTabType>('jarvis_voz');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
@@ -91,7 +93,7 @@ export function App() {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         soundSynth.playTelemetryBeep();
-        setIsSettingsOpen(prev => !prev);
+        setIsCommandsOpen(prev => !prev);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -349,6 +351,10 @@ export function App() {
           setSettingsTab(tab || 'jarvis_voz');
           setIsSettingsOpen(true);
         }}
+        onOpenCommands={() => {
+          soundSynth.playTelemetryBeep();
+          setIsCommandsOpen(true);
+        }}
       />
 
       {/* Main HUD Body */}
@@ -438,6 +444,13 @@ export function App() {
         personalData={personalData}
         onSave={handleSavePersonalData}
         initialTab={settingsTab}
+      />
+
+      {/* Tactical Command Palette Modal (Ctrl+K) */}
+      <CommandPaletteModal
+        isOpen={isCommandsOpen}
+        onClose={() => setIsCommandsOpen(false)}
+        onExecuteCommand={handleExecuteCommand}
       />
     </div>
   );

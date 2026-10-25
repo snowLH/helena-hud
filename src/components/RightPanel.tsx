@@ -1,6 +1,6 @@
 import React from 'react';
 import type { SystemStatus, PersonalData } from '../types';
-import { Wifi, HardDrive, Trash2, CloudSun, Zap } from 'lucide-react';
+import { Wifi, HardDrive, Trash2, CloudSun, Zap, ShieldCheck } from 'lucide-react';
 import { AudioVisualizer } from './AudioVisualizer';
 
 interface RightPanelProps {
@@ -31,11 +31,43 @@ export const RightPanel: React.FC<RightPanelProps> = ({
     probabilidadeChuva: "10%"
   };
 
+  const calculateHealth = () => {
+    let score = 100;
+    if (diskFree < 20) score -= 15;
+    else if (diskFree < 40) score -= 5;
+    if (tempMB > 150) score -= 10;
+    const ramUsage = status?.ram.usagePercent ?? 65;
+    if (ramUsage > 85) score -= 15;
+    const cpuUsage = status?.cpu.usagePercent ?? 24;
+    if (cpuUsage > 85) score -= 10;
+    if (ping > 120) score -= 8;
+    return Math.max(30, Math.min(100, score));
+  };
+  const healthScore = calculateHealth();
+
   return (
     <aside className="w-[260px] xl:w-[290px] flex flex-col gap-2.5 z-20 pointer-events-auto max-h-[calc(100vh-130px)] overflow-y-auto scrollbar-none py-1">
       {/* 1. Voice Modulation Wave Oscilloscope */}
       <div className="rounded-xl border border-purple-500/30 bg-slate-950/70 backdrop-blur-md p-2.5 shadow-[0_0_20px_rgba(11,4,16,0.8)]">
         <AudioVisualizer isSpeaking={isSpeaking} />
+      </div>
+
+      {/* 1.1. System Health Widget */}
+      <div className="rounded-xl border border-purple-500/30 bg-slate-950/70 backdrop-blur-md p-2.5 shadow-[0_0_20px_rgba(11,4,16,0.8)] flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 rounded-lg bg-emerald-950/60 border border-emerald-400/50 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.3)]">
+            <ShieldCheck className="w-4 h-4" />
+          </div>
+          <div>
+            <span className="text-[9px] text-slate-400 font-mono block">INTEGRIDADE DO SISTEMA</span>
+            <span className="text-[11px] font-mono font-bold text-white">
+              {healthScore >= 90 ? 'EXCELENTE (NOMINAL)' : healthScore >= 75 ? 'ESTÁVEL (BOM)' : 'REQUER ATENÇÃO'}
+            </span>
+          </div>
+        </div>
+        <div className="text-right font-mono">
+          <span className="text-base font-bold text-emerald-400 drop-shadow-[0_0_8px_#10b981]">{healthScore}%</span>
+        </div>
       </div>
 
       {/* 2. Network & Storage Combo Widget */}
