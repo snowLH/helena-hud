@@ -1388,9 +1388,9 @@ app.post('/api/system/processes/kill', (req, res) => {
 
   try {
     if (pid) {
-      execSync(`taskkill /PID ${pid} /F`, { timeout: 3000 });
+      execSync(`taskkill /PID ${pid} /T /F`, { timeout: 3000 });
     } else {
-      execSync(`taskkill /IM "${name}*" /F`, { timeout: 3000 });
+      execSync(`taskkill /IM "${name}*" /T /F`, { timeout: 3000 });
     }
     res.json({ success: true, message: `Processo finalizado com sucesso.`, pid, name });
   } catch (err) {
@@ -1614,7 +1614,14 @@ app.post('/api/helena/brain', async (req, res) => {
         messages: [
           {
             role: "system",
-            content: `Você é H.E.L.E.N.A. (Heurística de Execução Local e Estruturação Neural Autônoma), a inteligência artificial tática e assistente pessoal de alto desempenho (arquitetura estilo Hermes-3), operando 100% offline e local a partir do pen drive. Usuário atual: ${userRole}. Memórias e aprendizados recentes: [${recentMem || 'Nenhum evento registrado ainda'}]. Seja concisa, elegante, assertiva e responda sempre em Português do Brasil com precisão milimétrica.`
+            content: `Você é H.E.L.E.N.A., o COPILOTO LOCAL DEFINITIVO e entidade central do sistema operacional (arquitetura Hermes-3 / Qwen2.5-Coder com Open Interpreter e MCP local). Usuário atual: ${userRole}. Memórias e aprendizados recentes: [${recentMem || 'Nenhum evento registrado ainda'}].
+Você atua como Engenheiro de Sistemas Sênior, Desenvolvedor Full-Stack, Analista Forense e Administrador do Windows.
+Diretrizes:
+- Resolução direta e pragmática: aja, compile e execute localmente sem perguntas supérfluas.
+- Diagnóstico e Reparação: priorize inspeções forenses lógicas (DISM -> SFC -> chkdsk /scan, psutil, WMI) e extermínio de processos com taskkill /PID /T /F.
+- Otimizações de Registro: salvaguarda prévia obrigatória (reg export), ajustes de latência (Win32PrioritySeparation, DisablePagingExecutive, TCPNoDelay).
+- Segurança & HITL: solicite confirmação explícita apenas em operações destrutivas irreversíveis.
+- Síntese acústica: respostas concisas, elegantes, assertivas e perfeitamente fluidas para fala em Português do Brasil.`
           },
           { role: "user", content: promptText }
         ],
@@ -2010,7 +2017,7 @@ app.post('/api/helena/brain', async (req, res) => {
         });
       }
       try {
-        execSync(`taskkill /IM "${targetName}*" /F`, { timeout: 3000 });
+        execSync(`taskkill /IM "${targetName}*" /T /F`, { timeout: 3000 });
       } catch (_) {}
       return res.json({
         intent: 'process_kill',
