@@ -74,6 +74,75 @@ export interface RepairReport {
   resumo?: string;
 }
 
+export interface GoldenRepairStep {
+  fase: string;
+  comando: string;
+  status: 'CONCLUÍDO' | 'REPARADO' | 'VERIFICADO' | 'REQUER ELEVAÇÃO' | 'ALERTA';
+  detalhe: string;
+  duracaoMs?: number;
+}
+
+export interface GoldenRepairReport {
+  timestamp: string;
+  sucesso: boolean;
+  modo: string;
+  duracaoTotalMs: number;
+  etapas: GoldenRepairStep[];
+  errosCorrigidos: number;
+  resumo: string;
+  recomendacao: string;
+}
+
+export interface RegistryOptimizationReport {
+  timestamp: string;
+  sucesso: boolean;
+  backupCriado: boolean;
+  backupPath: string;
+  parametrosModificados: Array<{
+    chave: string;
+    valorOriginal?: any;
+    valorOtimizado: any;
+    finalidade: string;
+  }>;
+  resumo: string;
+}
+
+export interface CognitiveEngineInfo {
+  id: string;
+  nome: string;
+  tipo: 'ollama' | 'llama_server' | 'embutido';
+  endpoint: string;
+  online: boolean;
+  modeloAtivo?: string;
+  modelosDisponiveis?: string[];
+  latenciaMs?: number;
+  vramEstimada?: string;
+  descricao: string;
+}
+
+export interface McpTool {
+  name: string;
+  description: string;
+  inputSchema: {
+    type: string;
+    properties?: Record<string, any>;
+    required?: string[];
+  };
+  category: string;
+  riskLevel: 'Baixo (Auto)' | 'Médio (Controlado)' | 'Alto (HITL Requerido)';
+}
+
+export interface HitlRequest {
+  id: string;
+  acao: string;
+  alvo: string;
+  nivelRiscoAIRQ: string;
+  blastRadius: string;
+  descricao: string;
+  comandoSugerido: string;
+  timestamp: string;
+}
+
 export interface StartupApp {
   id: string;
   name: string;
@@ -296,7 +365,12 @@ export interface HelenaCard {
     | 'modo_estudo'
     | 'dicas_estudo'
     | 'briefing_unificado'
-    | 'otimizacao_unificada';
+    | 'otimizacao_unificada'
+    | 'reparo_dourado'
+    | 'otimizacao_registro'
+    | 'motores_cognitivos'
+    | 'mcp_console'
+    | 'hitl_confirmacao';
   subtitulo: string;
   fala: string;
   metricas?: Array<{ label: string; valor: string; detalhe?: string }>;
@@ -352,6 +426,17 @@ export interface HelenaCard {
     planoEnergia: string;
     processos: Array<{ name: string; pid: number; memoryMB: number }>;
   };
+  relatorioReparoDourado?: GoldenRepairReport;
+  otimizacaoRegistro?: RegistryOptimizationReport;
+  motoresCognitivos?: {
+    motores: CognitiveEngineInfo[];
+    motorAtivoId: string;
+  };
+  mcpConsole?: {
+    tools: McpTool[];
+    resources: Array<{ uri: string; name: string; description: string }>;
+  };
+  hitlConfirmacao?: HitlRequest;
 }
 
 export type HelenaState = 'EM ESPERA' | 'FALANDO' | 'PROCESSANDO' | 'BIOMETRIA';

@@ -16,7 +16,9 @@ import {
   Briefcase,
   FolderOpen,
   Brain,
-  GraduationCap
+  GraduationCap,
+  Boxes,
+  Cpu
 } from 'lucide-react';
 import { soundSynth } from '../audio/synth';
 
@@ -128,10 +130,13 @@ export const CommandBar: React.FC<CommandBarProps> = ({
     { label: 'Helena, iniciar modo de estudos', shortLabel: 'Modo Estudos', icon: <GraduationCap className="w-3 h-3 text-emerald-400" /> },
     { label: 'Helena, bom dia', shortLabel: 'Briefing', icon: <Sparkles className="w-3 h-3 text-cyan-400" /> },
     { label: 'Helena, otimizar computador', shortLabel: 'Otimizar PC', icon: <Zap className="w-3 h-3 text-amber-400" /> },
+    { label: 'Helena, reparo dourado', shortLabel: 'Reparo Dourado', icon: <Wrench className="w-3 h-3 text-cyan-400" /> },
+    { label: 'Helena, otimizar registro', shortLabel: 'Otimizar Registro', icon: <Zap className="w-3 h-3 text-amber-400" /> },
+    { label: 'Helena, motores de IA', shortLabel: 'Motores IA', icon: <Cpu className="w-3 h-3 text-emerald-400" /> },
+    { label: 'Helena, ferramentas mcp', shortLabel: 'Ferramentas MCP', icon: <Boxes className="w-3 h-3 text-purple-400" /> },
     { label: 'Helena, modo de trabalho', shortLabel: 'Modo Trabalho', icon: <Briefcase className="w-3 h-3 text-cyan-400" /> },
     { label: 'Helena, organizar meus arquivos', shortLabel: 'Organizar Arquivos', icon: <FolderOpen className="w-3 h-3 text-purple-400" /> },
     { label: 'Helena, lembre-se que foco total hoje', shortLabel: 'Lembre-se', icon: <Brain className="w-3 h-3 text-purple-300" /> },
-    { label: 'Helena, reparar o PC', shortLabel: 'Reparar', icon: <Wrench className="w-3 h-3 text-emerald-400" /> },
     { label: 'Helena, fazer benchmark', shortLabel: 'Benchmark', icon: <Gauge className="w-3 h-3 text-cyan-400" /> },
     { label: 'Helena, diagnóstico de rede', shortLabel: 'Teste de Rede', icon: <Globe className="w-3 h-3 text-purple-400" /> },
     { label: 'Helena, nível de bateria', shortLabel: 'Bateria', icon: <BatteryCharging className="w-3 h-3 text-emerald-400" /> }

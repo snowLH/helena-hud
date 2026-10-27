@@ -248,7 +248,10 @@ export function App() {
     if (cmd.includes('bom dia') || cmd.includes('briefing') || cmd.includes('matinal')) {
       return executeBriefingFlow();
     }
-    if (cmd.includes('otimizar') || cmd.includes('limpar pc') || cmd.includes('limpar computador')) {
+    if (
+      !cmd.includes('registro') &&
+      (cmd.includes('otimizar computador') || cmd.includes('otimizar pc') || cmd.includes('limpar pc') || cmd.includes('limpar computador') || cmd === 'otimizar' || cmd === 'helena, otimizar')
+    ) {
       return executeOptimizationFlow();
     }
     if (cmd.includes('abrir perfil') || cmd.includes('ver perfil') || cmd.includes('ver memória') || cmd.includes('abrir memória') || cmd.includes('memória e perfil')) {

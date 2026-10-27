@@ -21,6 +21,62 @@
   ],
   "memoriasEpisodicas": [
     {
+      "id": "mem-1793136834665-2cuq2h",
+      "tipo": "registro",
+      "resumo": "Ajuste de baixa latência no Registro com backup em reg_backup_2026-10-27T21-33-54-532Z.reg.",
+      "data": "2026-10-27T21:33:54.665Z",
+      "relevancia": "Alta"
+    },
+    {
+      "id": "mem-1793136829704-36dvhc",
+      "tipo": "reparo_dourado",
+      "resumo": "Sequência Dourada de Reparo (full). Resumo: Sequência Dourada concluída em 2.1s com 4 etapas analisadas. 3 subsistema(s) exigem privilégio de administrador para reparo profundo.",
+      "data": "2026-10-27T21:33:49.704Z",
+      "relevancia": "Alta"
+    },
+    {
+      "id": "mem-1793136725032-dq1gd3",
+      "tipo": "otimizacao",
+      "resumo": "Ciclo de otimização de sistema ativado. Purgando %TEMP%, cache DNS e ativando Alto Desempenho.",
+      "data": "2026-10-27T21:32:05.032Z",
+      "relevancia": "Alta"
+    },
+    {
+      "id": "mem-1793136722197-gbuzfl",
+      "tipo": "reparo_dourado",
+      "resumo": "Sequência Dourada de Reparo (full). Resumo: Sequência Dourada concluída em 1.9s com 4 etapas analisadas. 3 subsistema(s) exigem privilégio de administrador para reparo profundo.",
+      "data": "2026-10-27T21:32:02.197Z",
+      "relevancia": "Alta"
+    },
+    {
+      "id": "mem-1793136390164-sp32n9",
+      "tipo": "registro",
+      "resumo": "Ajuste de baixa latência no Registro com backup em reg_backup_2026-10-27T21-26-30-076Z.reg.",
+      "data": "2026-10-27T21:26:30.164Z",
+      "relevancia": "Alta"
+    },
+    {
+      "id": "mem-1793136389307-nab9a",
+      "tipo": "reparo_dourado",
+      "resumo": "Sequência Dourada de Reparo (full). Resumo: Sequência Dourada concluída em 0.2s com 4 etapas analisadas. 3 subsistema(s) exigem privilégio de administrador para reparo profundo.",
+      "data": "2026-10-27T21:26:29.307Z",
+      "relevancia": "Alta"
+    },
+    {
+      "id": "mem-1793136387655-13fpiq",
+      "tipo": "registro",
+      "resumo": "Ajuste de baixa latência no Registro com backup em reg_backup_2026-10-27T21-26-27-553Z.reg.",
+      "data": "2026-10-27T21:26:27.655Z",
+      "relevancia": "Alta"
+    },
+    {
+      "id": "mem-1793136387540-yzgjl",
+      "tipo": "reparo_dourado",
+      "resumo": "Sequência Dourada de Reparo (quick). Resumo: Sequência Dourada concluída em 0.2s com 4 etapas analisadas. 3 subsistema(s) exigem privilégio de administrador para reparo profundo.",
+      "data": "2026-10-27T21:26:27.540Z",
+      "relevancia": "Alta"
+    },
+    {
       "id": "mem-1792932240979-f3oppc",
       "tipo": "otimizacao",
       "resumo": "Ciclo de otimização de sistema ativado. Purgando %TEMP%, cache DNS e ativando Alto Desempenho.",
@@ -246,10 +302,10 @@
     }
   ],
   "estatisticas": {
-    "totalInteracoes": 47,
-    "otimizacoesRealizadas": 7,
+    "totalInteracoes": 55,
+    "otimizacoesRealizadas": 8,
     "briefingsExecutados": 9,
     "arquivosOrganizados": 27,
-    "ultimaInteracao": "2026-10-25T12:44:00.979Z"
+    "ultimaInteracao": "2026-10-27T21:33:54.665Z"
   }
 }

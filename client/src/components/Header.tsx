@@ -19,7 +19,10 @@ import {
   Terminal,
   Brain,
   ChevronDown,
-  GraduationCap
+  GraduationCap,
+  Zap,
+  Boxes,
+  Cpu
 } from 'lucide-react';
 import { soundSynth } from '../audio/synth';
 import { speechController } from '../audio/speech';
@@ -354,6 +357,20 @@ export const Header: React.FC<HeaderProps> = ({
                 <div>
                   <div className="font-semibold text-[11px]">Reparo & Otimização PC</div>
                   <div className="text-[9px] text-emerald-400/70">Flush DNS, limpeza temp e modo turbo</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setToolsOpen(false);
+                  onOpenCommands();
+                }}
+                className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left text-xs font-mono text-cyan-200 hover:text-white hover:bg-cyan-950/70 border border-transparent hover:border-cyan-500/40 transition-all cursor-pointer"
+              >
+                <Cpu className="w-4 h-4 text-cyan-400 shrink-0" />
+                <div>
+                  <div className="font-semibold text-[11px]">Central Copilot // Qwen & MCP</div>
+                  <div className="text-[9px] text-cyan-400/70">Sequência Dourada, Regedit e Motores IA</div>
                 </div>
               </button>
 

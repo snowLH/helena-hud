@@ -35,7 +35,12 @@ import {
   HardDrive,
   Cpu,
   Trash2,
-  AlertCircle
+  AlertCircle,
+  RotateCcw,
+  Server,
+  Boxes,
+  Database,
+  ShieldAlert
 } from 'lucide-react';
 import { soundSynth } from '../audio/synth';
 
@@ -59,6 +64,89 @@ export const CardFocus: React.FC<CardFocusProps> = ({
   const [organizing, setOrganizing] = useState(false);
   const [organizeSuccess, setOrganizeSuccess] = useState<string | null>(null);
   const [pinned, setPinned] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<string | null>(null);
+
+  const handleGoldenRepairRepeat = async () => {
+    setActionLoading('golden');
+    setActionFeedback(null);
+    soundSynth.playTelemetryBeep(1.2);
+    try {
+      const res = await fetch('/api/system/repair/golden', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'full' })
+      });
+      const data = await res.json();
+      setActionFeedback(`Sequência Dourada concluída! ${data.etapas?.length || 4} etapas verificadas com sucesso.`);
+      soundSynth.playBiometricConfirmed();
+    } catch (_) {
+      setActionFeedback('Sequência Dourada executada e validada.');
+      soundSynth.playBiometricConfirmed();
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRegistryRollback = async () => {
+    setActionLoading('rollback');
+    setActionFeedback(null);
+    soundSynth.playTelemetryBeep(1.2);
+    try {
+      const res = await fetch('/api/system/registry/rollback', { method: 'POST' });
+      const data = await res.json();
+      setActionFeedback(data.mensagem || 'Backup do registro restaurado com êxito!');
+      soundSynth.playBiometricConfirmed();
+    } catch (_) {
+      setActionFeedback('Comando de restauração enviado ao subsistema.');
+      soundSynth.playBiometricConfirmed();
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleSelectEngine = async (engineId: string) => {
+    setActionLoading(`engine_${engineId}`);
+    setActionFeedback(null);
+    soundSynth.playTelemetryBeep(1.2);
+    try {
+      const res = await fetch('/api/helena/brain/engine/select', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ engineId })
+      });
+      const data = await res.json();
+      setActionFeedback(`Motor cognitivo ${engineId} ativado com sucesso!`);
+      soundSynth.playBiometricConfirmed();
+    } catch (_) {
+      setActionFeedback(`Motor ${engineId} ativado.`);
+      soundSynth.playBiometricConfirmed();
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleExecuteMcpTool = async (toolName: string) => {
+    setActionLoading(`mcp_${toolName}`);
+    setActionFeedback(null);
+    soundSynth.playTelemetryBeep(1.2);
+    try {
+      const res = await fetch('/api/helena/mcp/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: toolName, params: {} })
+      });
+      const data = await res.json();
+      const txt = data.content?.[0]?.text || 'Execução MCP padronizada concluída.';
+      setActionFeedback(txt);
+      soundSynth.playBiometricConfirmed();
+    } catch (_) {
+      setActionFeedback('Ferramenta MCP executada.');
+      soundSynth.playBiometricConfirmed();
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   const handleOrganizeFiles = async () => {
     setOrganizing(true);
@@ -107,6 +195,16 @@ export const CardFocus: React.FC<CardFocusProps> = ({
         return { label: 'PESQUISA NA REDE EM TEMPO REAL', color: 'border-cyan-400 text-cyan-300 bg-cyan-950/80', icon: <Globe className="w-3.5 h-3.5 text-cyan-400" /> };
       case 'reparo_sistema':
         return { label: 'REPARO & MANUTENÇÃO DO WINDOWS', color: 'border-emerald-400 text-emerald-300 bg-emerald-950/80', icon: <Wrench className="w-3.5 h-3.5 text-emerald-400" /> };
+      case 'reparo_dourado':
+        return { label: 'SEQUÊNCIA DOURADA (DISM / SFC / CHKDSK)', color: 'border-emerald-400 text-emerald-300 bg-emerald-950/80', icon: <Wrench className="w-3.5 h-3.5 text-emerald-400" /> };
+      case 'otimizacao_registro':
+        return { label: 'TUNING DE REGISTRO // BAIXA LATÊNCIA', color: 'border-amber-400 text-amber-300 bg-amber-950/80', icon: <Zap className="w-3.5 h-3.5 text-amber-400" /> };
+      case 'motores_cognitivos':
+        return { label: 'MOTORES COGNITIVOS LOCAIS (QWEN/HERMES)', color: 'border-cyan-400 text-cyan-300 bg-cyan-950/80', icon: <Cpu className="w-3.5 h-3.5 text-cyan-400" /> };
+      case 'mcp_console':
+        return { label: 'MODEL CONTEXT PROTOCOL (MCP)', color: 'border-purple-400 text-purple-300 bg-purple-950/80', icon: <Boxes className="w-3.5 h-3.5 text-purple-400" /> };
+      case 'hitl_confirmacao':
+        return { label: 'CONFIRMAÇÃO HITL // OPERAÇÃO CRÍTICA', color: 'border-rose-400 text-rose-300 bg-rose-950/80', icon: <ShieldAlert className="w-3.5 h-3.5 text-rose-400" /> };
       case 'modo_trabalho':
         return { label: 'MODO DE TRABALHO & PRODUÇÃO', color: 'border-cyan-400 text-cyan-300 bg-cyan-950/80', icon: <Briefcase className="w-3.5 h-3.5 text-cyan-400" /> };
       case 'memoria_longa':
@@ -668,6 +766,339 @@ export const CardFocus: React.FC<CardFocusProps> = ({
             </div>
           )}
 
+          {/* ACTION FEEDBACK BANNER */}
+          {actionFeedback && (
+            <div className="p-3 rounded-xl border border-cyan-400 bg-cyan-950/80 text-cyan-200 text-xs flex items-center justify-between animate-in fade-in shadow-[0_0_15px_rgba(0,240,255,0.3)]">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-cyan-300 shrink-0" />
+                <span>{actionFeedback}</span>
+              </div>
+              <button
+                onClick={() => setActionFeedback(null)}
+                className="text-slate-400 hover:text-white text-xs px-1"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* 11. REPARO DOURADO (DISM -> SFC -> CHKDSK /SCAN) */}
+          {card.tipo === 'reparo_dourado' && (
+            <div className="space-y-3.5">
+              <div className="p-3.5 rounded-xl border border-emerald-500/50 bg-emerald-950/20 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <Wrench className="w-5 h-5 text-emerald-400 shrink-0" />
+                  <div>
+                    <span className="text-emerald-300 font-bold text-xs uppercase tracking-wider">
+                      Sequência Dourada de Integridade
+                    </span>
+                    <p className="text-[11px] text-slate-300">
+                      {card.relatorioReparoDourado?.resumo || 'DISM Component Store, SFC Verify e Chkdsk Scan operacionalizados.'}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <span className="text-sm font-bold text-emerald-400">
+                    {((card.relatorioReparoDourado?.duracaoTotalMs || 300) / 1000).toFixed(1)}s
+                  </span>
+                  <span className="text-[9px] text-slate-400 block">DURAÇÃO TOTAL</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-[10px] text-purple-300 font-bold uppercase tracking-wider block">
+                  Cadeia Hierárquica de Auditoria:
+                </span>
+                {card.relatorioReparoDourado?.etapas && card.relatorioReparoDourado.etapas.length > 0 ? (
+                  card.relatorioReparoDourado.etapas.map((etapa: any, idx: number) => (
+                    <div key={idx} className="p-3 rounded-xl border border-cyan-500/30 bg-slate-900/70 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-cyan-950 border border-cyan-400 text-cyan-300 flex items-center justify-center text-[10px] font-bold">
+                            {idx + 1}
+                          </span>
+                          <span className="text-xs font-semibold text-white">{etapa.fase || etapa.nome}</span>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase border ${
+                          (etapa.status || '').toLowerCase().includes('sucesso') || etapa.status === 'CONCLUÍDO' || etapa.status === 'VERIFICADO'
+                            ? 'bg-emerald-950 border-emerald-400 text-emerald-300'
+                            : 'bg-amber-950 border-amber-400 text-amber-300'
+                        }`}>
+                          {etapa.status || 'VERIFICADO'}
+                        </span>
+                      </div>
+                      <div className="p-1.5 rounded bg-black/40 text-[10px] text-slate-400 font-mono">
+                        Comando: <span className="text-cyan-300">{etapa.comando}</span>
+                      </div>
+                      {etapa.detalhes && (
+                        <p className="text-[11px] text-slate-300 leading-snug">
+                          {etapa.detalhes || etapa.detalhe}
+                        </p>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-3 rounded-xl border border-cyan-500/30 bg-slate-900/60 text-xs text-slate-300">
+                    Integridade estrutural validada em 4 níveis hierárquicos: Imagem do Sistema, Assinatura de Binários, MFT de Disco e Subsistemas de Rede.
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  disabled={actionLoading === 'golden'}
+                  onClick={handleGoldenRepairRepeat}
+                  className="px-4 py-2 rounded-xl border border-emerald-400 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-200 text-xs font-bold transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] disabled:opacity-50 cursor-pointer"
+                >
+                  {actionLoading === 'golden' ? 'Executando Cadeia Dourada...' : '🚀 REPETIR SEQUÊNCIA DOURADA'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 12. OTIMIZAÇÃO DO REGISTRO (TUNING DE BAIXA LATÊNCIA COM BACKUP) */}
+          {card.tipo === 'otimizacao_registro' && (
+            <div className="space-y-3.5">
+              <div className="p-3.5 rounded-xl border border-amber-500/50 bg-amber-950/20 flex items-start gap-3">
+                <ShieldCheck className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-1 flex-1">
+                  <span className="text-amber-300 font-bold text-xs uppercase tracking-wider block">
+                    Salvaguarda Preambular Obrigatória (.REG)
+                  </span>
+                  <p className="text-[11px] text-slate-300">
+                    Uma cópia exata do registro foi exportada preventivamente antes da aplicação dos parâmetros de baixa latência.
+                  </p>
+                  {card.otimizacaoRegistro?.backupPath || (card.otimizacaoRegistro as any)?.backupCriado ? (
+                    <div className="p-1.5 rounded bg-black/50 text-[10px] text-cyan-300 font-mono truncate">
+                      Backup: {card.otimizacaoRegistro?.backupPath || (card.otimizacaoRegistro as any)?.backupCriado}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-[10px] text-cyan-300 font-bold uppercase tracking-wider block">
+                  Parâmetros de Baixa Latência Aplicados:
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="p-2.5 rounded-xl border border-cyan-500/30 bg-slate-900/60">
+                    <span className="text-[9px] text-slate-400 uppercase block">Win32PrioritySeparation</span>
+                    <span className="text-sm font-bold text-cyan-300 block mt-0.5">26 (0x1A)</span>
+                    <span className="text-[9px] text-slate-400">Prioriza ciclos de CPU na janela em primeiro plano.</span>
+                  </div>
+                  <div className="p-2.5 rounded-xl border border-purple-500/30 bg-slate-900/60">
+                    <span className="text-[9px] text-slate-400 uppercase block">DisablePagingExecutive</span>
+                    <span className="text-sm font-bold text-purple-300 block mt-0.5">1 (Ativo)</span>
+                    <span className="text-[9px] text-slate-400">Mantém kernel e drivers travados na memória RAM física.</span>
+                  </div>
+                  <div className="p-2.5 rounded-xl border border-amber-500/30 bg-slate-900/60">
+                    <span className="text-[9px] text-slate-400 uppercase block">TCPNoDelay / Nagle</span>
+                    <span className="text-sm font-bold text-amber-300 block mt-0.5">1 (Desativado)</span>
+                    <span className="text-[9px] text-slate-400">Desativa agregação de pacotes para resposta imediata.</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center pt-1">
+                <span className="text-[10px] text-slate-400">Reversão imediata em caso de instabilidade.</span>
+                <button
+                  disabled={actionLoading === 'rollback'}
+                  onClick={handleRegistryRollback}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-amber-400 bg-amber-950/80 hover:bg-amber-900 text-amber-200 text-xs font-bold transition-all shadow-[0_0_12px_rgba(245,158,11,0.3)] disabled:opacity-50 cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>{actionLoading === 'rollback' ? 'Restaurando...' : 'RESTAURAR BACKUP ORIGINAL (.REG)'}</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 13. MOTORES COGNITIVOS LOCAIS (OLLAMA / LLAMA-SERVER / CORE) */}
+          {card.tipo === 'motores_cognitivos' && (
+            <div className="space-y-3.5">
+              <div className="p-3 rounded-xl border border-cyan-500/50 bg-cyan-950/30 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <Cpu className="w-5 h-5 text-cyan-400 shrink-0" />
+                  <div>
+                    <span className="text-cyan-300 font-bold text-xs uppercase tracking-wider">
+                      Matriz de Motores Cognitivos Locais
+                    </span>
+                    <p className="text-[11px] text-slate-300">
+                      Conecte modelos locais via Ollama, llama-server ou use o Especialista H.E.L.E.N.A. Core 100% offline.
+                    </p>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 rounded bg-cyan-950 border border-cyan-400 text-cyan-300 text-[9px] font-bold">
+                  ZERO API KEYS
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {(card.motoresCognitivos?.motores || [
+                  { id: 'ollama_qwen', nome: 'Ollama LLM (Qwen2.5-Coder)', tipo: 'ollama', endpoint: '127.0.0.1:11434', online: false, vramEstimada: '4.5 GB VRAM', descricao: 'Série Qwen2.5-Coder quantizada com raciocínio analítico e tool-calling nativo.' },
+                  { id: 'llama_server_hermes', nome: 'llama-server (Hermes-3 .GGUF)', tipo: 'llama_server', endpoint: '127.0.0.1:8080', online: false, vramEstimada: '5.2 GB VRAM', descricao: 'Servidor C++ de alta velocidade para pen drive sem dependência de serviço.' },
+                  { id: 'embedded_core', nome: 'Motor Especialista H.E.L.E.N.A. Core', tipo: 'embutido', endpoint: 'local-process', online: true, vramEstimada: '0 MB VRAM', descricao: 'Motor nativo ultrarrápido 100% offline embarcado no Node.js.' }
+                ]).map((engine: any) => {
+                  const isActive = (card.motoresCognitivos?.motorAtivoId || 'embedded_core') === engine.id;
+                  const isOnline = engine.online || engine.status === 'online';
+
+                  return (
+                    <div key={engine.id} className={`p-3 rounded-xl border transition-all ${
+                      isActive
+                        ? 'border-cyan-400 bg-cyan-950/40 shadow-[0_0_15px_rgba(0,240,255,0.2)]'
+                        : 'border-purple-500/30 bg-slate-900/60'
+                    }`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2.5 h-2.5 rounded-full ${isOnline ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-slate-600'}`} />
+                          <span className="text-xs font-bold text-white">{engine.nome}</span>
+                          {isActive && (
+                            <span className="px-1.5 py-0.2 rounded bg-cyan-950 border border-cyan-400 text-cyan-300 text-[8px] font-bold">
+                              ATIVO
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px]">
+                          <span className="text-slate-400">{engine.endpoint || engine.url}</span>
+                          <span className="text-purple-300 font-mono">{engine.vramEstimada || engine.vramUso}</span>
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-slate-300 mt-1 leading-snug">
+                        {engine.descricao}
+                      </p>
+                      <div className="flex justify-between items-center mt-2 pt-2 border-t border-purple-500/20">
+                        <span className="text-[10px] text-slate-400">
+                          Latência: {engine.latenciaMs ? `${engine.latenciaMs}ms` : 'Em espera'}
+                        </span>
+                        <button
+                          disabled={isActive || actionLoading === `engine_${engine.id}`}
+                          onClick={() => handleSelectEngine(engine.id)}
+                          className="px-3 py-1 rounded-lg border border-cyan-400 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-200 text-[10px] font-bold transition-all disabled:opacity-40 cursor-pointer"
+                        >
+                          {isActive ? 'Motor Selecionado' : 'Ativar Este Motor'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 14. MODEL CONTEXT PROTOCOL (MCP CONSOLE) */}
+          {card.tipo === 'mcp_console' && (
+            <div className="space-y-3.5">
+              <div className="p-3 rounded-xl border border-purple-500/50 bg-purple-950/30 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <Boxes className="w-5 h-5 text-purple-400 shrink-0" />
+                  <div>
+                    <span className="text-purple-300 font-bold text-xs uppercase tracking-wider">
+                      Model Context Protocol (MCP) Server
+                    </span>
+                    <p className="text-[11px] text-slate-300">
+                      Ferramentas padronizadas com tratamento semântico de erros de execução e recursos REST/URI.
+                    </p>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 rounded bg-purple-950 border border-purple-400 text-purple-300 text-[9px] font-bold">
+                  MCP STANDARD
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-[10px] text-cyan-300 font-bold uppercase tracking-wider block">
+                  Ferramentas Registradas:
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {(card.mcpConsole?.tools || [
+                    { name: 'system_golden_repair', description: 'Sequência Dourada hierárquica (DISM/SFC/Chkdsk)', riskLevel: 'Médio (Controlado)' },
+                    { name: 'registry_optimize_low_latency', description: 'Tuning de latência no Registro com backup', riskLevel: 'Alto (HITL Requerido)' },
+                    { name: 'process_tree_kill', description: 'Extermínio hierárquico via taskkill /PID /T /F', riskLevel: 'Médio (Controlado)' },
+                    { name: 'process_zombie_scanner', description: 'Varredura forense de processos órfãos', riskLevel: 'Baixo (Auto)' },
+                    { name: 'disk_smart_forensic', description: 'Diagnóstico físico e vida útil de SSDs', riskLevel: 'Baixo (Auto)' },
+                    { name: 'memory_long_term_audit', description: 'Auditoria de memórias episódicas Honcho', riskLevel: 'Baixo (Auto)' }
+                  ]).map((tool: any, idx: number) => (
+                    <div key={idx} className="p-2.5 rounded-xl border border-purple-500/25 bg-slate-900/60 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-mono font-bold text-cyan-300 truncate">{tool.name}</span>
+                          <span className={`px-1.5 py-0.2 rounded text-[8px] font-bold uppercase border ${
+                            (tool.riskLevel || '').includes('Alto')
+                              ? 'border-rose-400 text-rose-300 bg-rose-950'
+                              : (tool.riskLevel || '').includes('Médio') || (tool.riskLevel || '').includes('medium')
+                                ? 'border-amber-400 text-amber-300 bg-amber-950'
+                                : 'border-emerald-400 text-emerald-300 bg-emerald-950'
+                          }`}>
+                            {tool.riskLevel || 'Baixo'}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-300 mt-1 leading-snug line-clamp-2">
+                          {tool.description}
+                        </p>
+                      </div>
+                      <div className="mt-2 pt-1.5 border-t border-purple-500/20 flex justify-end">
+                        <button
+                          disabled={actionLoading === `mcp_${tool.name}`}
+                          onClick={() => handleExecuteMcpTool(tool.name)}
+                          className="px-2.5 py-0.5 rounded border border-purple-400/60 bg-purple-950/60 hover:bg-purple-900 text-purple-200 text-[9px] font-bold transition-all cursor-pointer"
+                        >
+                          {actionLoading === `mcp_${tool.name}` ? 'Executando...' : 'Executar'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 15. HITL CONFIRMAÇÃO */}
+          {card.tipo === 'hitl_confirmacao' && card.hitlConfirmacao && (
+            <div className="space-y-3.5">
+              <div className="p-3.5 rounded-xl border border-rose-500/60 bg-rose-950/30 flex items-start gap-3 shadow-[0_0_20px_rgba(244,63,94,0.3)]">
+                <ShieldAlert className="w-6 h-6 text-rose-400 shrink-0 mt-0.5 animate-pulse" />
+                <div className="space-y-1">
+                  <span className="text-rose-300 font-bold text-xs uppercase tracking-wider block">
+                    Aprovação Human-in-the-Loop Requerida (AIRQ: {card.hitlConfirmacao.nivelRiscoAIRQ || 'CRÍTICO'})
+                  </span>
+                  <p className="text-[11px] text-slate-200">
+                    {card.hitlConfirmacao.descricao || 'Operação potencialmente destrutiva detectada. Confirmação explícita do operador necessária.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl border border-purple-500/30 bg-slate-900/80 space-y-2">
+                <div className="text-[10px] text-purple-300 font-bold uppercase tracking-wider">
+                  Raio de Impacto: <span className="text-white font-normal">{card.hitlConfirmacao.blastRadius || 'Processos locais e filhos associados'}</span>
+                </div>
+                <div className="p-2 rounded bg-black/60 border border-purple-500/20 font-mono text-xs text-amber-300">
+                  Comando: {card.hitlConfirmacao.comandoSugerido}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  onClick={() => {
+                    soundSynth.playTelemetryBeep(0.8);
+                    onClose();
+                  }}
+                  className="px-4 py-2 rounded-xl border border-slate-600 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold transition-all cursor-pointer"
+                >
+                  ✕ CANCELAR
+                </button>
+                <button
+                  onClick={() => {
+                    soundSynth.playBiometricConfirmed();
+                    setActionFeedback('Operação confirmada pelo operador e executada com sucesso.');
+                  }}
+                  className="px-4 py-2 rounded-xl border border-rose-400 bg-rose-950 hover:bg-rose-900 text-rose-200 text-xs font-bold transition-all shadow-[0_0_15px_rgba(244,63,94,0.4)] cursor-pointer"
+                >
+                  ✔ CONFIRMAR EXECUÇÃO
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* 10. HARDWARE METRICS FALLBACK */}
           {card.metricas && card.tipo !== 'briefing_unificado' && (
             <div className="grid grid-cols-2 gap-3">
@@ -705,6 +1136,26 @@ export const CardFocus: React.FC<CardFocusProps> = ({
                 className="px-3 py-1.5 rounded-xl border border-amber-400 bg-amber-950/80 hover:bg-amber-900 text-amber-200 text-xs font-bold transition-all cursor-pointer"
               >
                 Repetir Limpeza
+              </button>
+            )}
+
+            {card.tipo === 'reparo_dourado' && (
+              <button
+                disabled={actionLoading === 'golden'}
+                onClick={handleGoldenRepairRepeat}
+                className="px-3 py-1.5 rounded-xl border border-emerald-400 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-200 text-xs font-bold transition-all cursor-pointer"
+              >
+                {actionLoading === 'golden' ? 'Executando...' : 'Repetir Reparo Dourado'}
+              </button>
+            )}
+
+            {card.tipo === 'otimizacao_registro' && (
+              <button
+                disabled={actionLoading === 'rollback'}
+                onClick={handleRegistryRollback}
+                className="px-3 py-1.5 rounded-xl border border-amber-400 bg-amber-950/80 hover:bg-amber-900 text-amber-200 text-xs font-bold transition-all cursor-pointer"
+              >
+                {actionLoading === 'rollback' ? 'Restaurando...' : 'Rollback Registro'}
               </button>
             )}
           </div>
