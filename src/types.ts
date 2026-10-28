@@ -1,10 +1,14 @@
 export interface SystemStatus {
   timestamp: string;
+  isLocalAgent?: boolean;
+  isCloudSandbox?: boolean;
+  cloudNotice?: string;
   user: {
     username: string;
     hostname: string;
     platform: string;
     arch: string;
+    pcModel?: string;
     uptimeSeconds: number;
   };
   cpu: {

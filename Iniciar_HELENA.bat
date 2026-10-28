@@ -49,28 +49,36 @@ if exist "%~dp0runtime\llama\llama-server.exe" (
 :llama_iniciado
 
 REM 3. Iniciar Servidor Backend Local na porta 3000
-echo [2/3] Iniciando servidor Express local na porta 3000...
-start "HELENA_CORE_SERVER" /min cmd /c "node server.js"
-
-REM Aguardar o servidor subir
-ping 127.0.0.1 -n 3 >nul
+netstat -ano | findstr :3000 >nul 2>nul
+if %errorlevel% equ 0 (
+    echo [2/3] Servidor H.E.L.E.N.A. já está ativo na porta 3000 (Hardware Real Conectado).
+) else (
+    echo [2/3] Iniciando servidor Express local na porta 3000...
+    start "HELENA_CORE_SERVER" /min cmd /c "node server.js"
+    ping 127.0.0.1 -n 3 >nul
+)
 
 REM 4. Abrir Interface HUD em Tela Cheia no Navegador
-echo [3/3] Abrindo interface HUD em modo tela cheia...
+echo [3/3] Abrindo interface HUD em modo tela cheia nativo...
 echo.
 
-REM Tentativa 1: Google Chrome em modo App tela cheia
-where chrome >nul 2>nul
-if %errorlevel% equ 0 (
-    start "" chrome --app=http://localhost:3000 --start-fullscreen
+REM Tentativa 1: Microsoft Edge em modo App tela cheia (Nativo Windows)
+if exist "%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe" (
+    start "" "%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe" --app=http://127.0.0.1:3000 --start-fullscreen
     goto sucesso
 )
+if exist "%ProgramFiles%\Microsoft\Edge\Application\msedge.exe" (
+    start "" "%ProgramFiles%\Microsoft\Edge\Application\msedge.exe" --app=http://127.0.0.1:3000 --start-fullscreen
+    goto sucesso
+)
+
+REM Tentativa 2: Google Chrome em modo App tela cheia
 if exist "%ProgramFiles%\Google\Chrome\Application\chrome.exe" (
-    start "" "%ProgramFiles%\Google\Chrome\Application\chrome.exe" --app=http://localhost:3000 --start-fullscreen
+    start "" "%ProgramFiles%\Google\Chrome\Application\chrome.exe" --app=http://127.0.0.1:3000 --start-fullscreen
     goto sucesso
 )
 if exist "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe" (
-    start "" "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe" --app=http://localhost:3000 --start-fullscreen
+    start "" "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe" --app=http://127.0.0.1:3000 --start-fullscreen
     goto sucesso
 )
 if exist "%LocalAppData%\Google\Chrome\Application\chrome.exe" (

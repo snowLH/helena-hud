@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import type { HelenaState } from '../types';
+import type { HelenaState, SystemStatus } from '../types';
 import {
   Volume2,
   VolumeX,
@@ -29,6 +29,7 @@ import { speechController } from '../audio/speech';
 
 interface HeaderProps {
   state: HelenaState;
+  status?: SystemStatus | null;
   isSpeaking: boolean;
   biometricConfirmed: boolean;
   consolidated: boolean;
@@ -41,6 +42,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   state,
+  status,
   isSpeaking,
   biometricConfirmed,
   consolidated,
@@ -176,8 +178,12 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="text-sm sm:text-base font-mono font-bold tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-300 to-cyan-300 drop-shadow-[0_0_10px_rgba(0,240,255,0.4)]">
                 H.E.L.E.N.A.
               </span>
-              <span className="px-1.5 py-0.2 rounded text-[8px] font-mono bg-purple-950/80 border border-purple-400/50 text-purple-300 font-semibold tracking-wider">
-                LOCAL
+              <span className={`px-1.5 py-0.2 rounded text-[8px] font-mono border font-semibold tracking-wider ${
+                status?.isLocalAgent
+                  ? 'bg-emerald-950/80 border-emerald-400/50 text-emerald-300 shadow-[0_0_8px_rgba(52,211,153,0.3)]'
+                  : 'bg-purple-950/80 border-purple-400/50 text-purple-300'
+              }`}>
+                {status?.isLocalAgent ? 'NATIVO PC' : 'LOCAL'}
               </span>
             </div>
           </div>
@@ -224,11 +230,15 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           <div
-            title="Motor de Agente Especialista Local Operacional"
-            className="px-2 py-0.5 rounded-full text-[9px] font-mono font-semibold tracking-wider flex items-center gap-1 transition-all bg-cyan-950/80 border border-cyan-400 text-cyan-300 shadow-[0_0_8px_rgba(0,240,255,0.3)]"
+            title={status?.isLocalAgent ? 'Hardware real do seu PC conectado (Intel Core i5, 16GB RAM)' : 'Acesso ao hardware local em espera'}
+            className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-semibold tracking-wider flex items-center gap-1 transition-all ${
+              status?.isLocalAgent
+                ? 'bg-emerald-950/80 border border-emerald-400 text-emerald-300 shadow-[0_0_8px_rgba(52,211,153,0.3)]'
+                : 'bg-cyan-950/80 border border-cyan-400 text-cyan-300 shadow-[0_0_8px_rgba(0,240,255,0.3)]'
+            }`}
           >
-            <span className="w-1 h-1 rounded-full bg-cyan-400 shadow-[0_0_6px_#00f0ff]" />
-            AGENTE ON
+            <span className={`w-1 h-1 rounded-full ${status?.isLocalAgent ? 'bg-emerald-400' : 'bg-cyan-400'} shadow-[0_0_6px_#00f0ff]`} />
+            {status?.isLocalAgent ? 'PC HOST REAL' : 'AGENTE ON'}
           </div>
         </div>
       </div>

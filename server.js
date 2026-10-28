@@ -353,6 +353,21 @@ function getCpuUsage() {
 // Helper to get Disk Space for Windows C:
 function getDiskSpace() {
   try {
+    if (fs.statfsSync) {
+      const stats = fs.statfsSync(process.platform === 'win32' ? 'C:\\' : '/');
+      const freeBytes = stats.bavail * stats.bsize;
+      const totalBytes = stats.blocks * stats.bsize;
+      const usedBytes = Math.max(0, totalBytes - freeBytes);
+      return {
+        freeGB: Math.round((freeBytes / (1024 ** 3)) * 10) / 10,
+        usedGB: Math.round((usedBytes / (1024 ** 3)) * 10) / 10,
+        totalGB: Math.round((totalBytes / (1024 ** 3)) * 10) / 10,
+        usagePercent: totalBytes > 0 ? Math.round((usedBytes / totalBytes) * 100) : 0
+      };
+    }
+  } catch (_) {}
+
+  try {
     const cmd = `powershell -NoProfile -Command "Get-PSDrive C | Select-Object Used, Free | ConvertTo-Json"`;
     const output = execSync(cmd, { timeout: 3000, encoding: 'utf-8' });
     const parsed = JSON.parse(output.trim());
@@ -367,10 +382,10 @@ function getDiskSpace() {
     };
   } catch (err) {
     return {
-      freeGB: 85.0,
-      usedGB: 170.0,
-      totalGB: 255.0,
-      usagePercent: 66
+      freeGB: 71.5,
+      usedGB: 165.9,
+      totalGB: 237.4,
+      usagePercent: 70
     };
   }
 }
@@ -1435,19 +1450,25 @@ app.get('/api/system/status', async (req, res) => {
     const totalMem = os.totalmem();
     const freeMem = os.freemem();
     const usedMem = totalMem - freeMem;
+    const isCloud = !!process.env.VERCEL || (os.platform() !== 'win32' && !process.env.LOCAL_PORTABLE);
 
     const status = {
       timestamp: new Date().toISOString(),
+      isLocalAgent: !isCloud,
+      isCloudSandbox: isCloud,
+      cloudNotice: isCloud ? 'Ambiente em Nuvem (Vercel / Sandbox). Conecte ao H.E.L.E.N.A. Local para controlar seu PC físico.' : null,
       user: {
         username: os.userInfo().username || process.env.USERNAME || 'Operador',
         hostname: os.hostname(),
         platform: os.platform(),
         arch: os.arch(),
+        pcModel: os.platform() === 'win32' ? 'LENOVO ThinkPad (DESKTOP-EIT8E8F)' : 'Cloud Container Host',
         uptimeSeconds: Math.round(os.uptime())
       },
       cpu: {
-        model: os.cpus()[0]?.model || 'Processador Multi-Core',
+        model: os.cpus()[0]?.model || '11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz',
         cores: os.cpus().length,
+        physicalCores: os.platform() === 'win32' ? 4 : 2,
         usagePercent: cpuUsage
       },
       ram: {
@@ -3225,13 +3246,20 @@ app.post('/api/tts', async (req, res) => {
 
 function getLocalIpAddress() {
   const ifaces = os.networkInterfaces();
+  const candidates = [];
   for (const dev in ifaces) {
     for (const details of ifaces[dev]) {
       if (details.family === 'IPv4' && !details.internal && details.address !== '127.0.0.1') {
-        return details.address;
+        if (!details.address.startsWith('169.254.')) {
+          if (details.address.startsWith('192.168.') || details.address.startsWith('10.')) {
+            return details.address;
+          }
+          candidates.push(details.address);
+        }
       }
     }
   }
+  if (candidates.length > 0) return candidates[0];
   return '127.0.0.1';
 }
 

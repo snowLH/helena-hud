@@ -50,6 +50,16 @@ export function App() {
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
   const activeFlowRef = useRef<boolean>(false);
+  const [localApiBase, setLocalApiBase] = useState<string>('');
+
+  const isLocalHost = typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+  const getEndpoint = useCallback((path: string) => {
+    if (isLocalHost) return path;
+    if (localApiBase) return `${localApiBase}${path}`;
+    return path;
+  }, [isLocalHost, localApiBase]);
 
   // Synchronize speaking state with speechController
   useEffect(() => {
@@ -67,23 +77,38 @@ export function App() {
   // Fetch initial telemetry and periodic polling (every 3s)
   const fetchTelemetry = useCallback(async () => {
     try {
-      const res = await fetch('/api/system/status');
+      // If running on remote domain (e.g. vercel.app), probe local agent at 127.0.0.1:3000
+      if (!isLocalHost && !localApiBase) {
+        try {
+          const probe = await fetch('http://127.0.0.1:3000/api/system/status', {
+            signal: AbortSignal.timeout(800)
+          });
+          if (probe.ok) {
+            const localData = await probe.json();
+            setLocalApiBase('http://127.0.0.1:3000');
+            setSystemStatus(localData);
+            return;
+          }
+        } catch (_) {}
+      }
+
+      const res = await fetch(getEndpoint('/api/system/status'));
       if (res.ok) {
         const data = await res.json();
         setSystemStatus(data);
       }
     } catch (_) {}
-  }, []);
+  }, [isLocalHost, localApiBase, getEndpoint]);
 
   const fetchBriefingData = useCallback(async () => {
     try {
-      const res = await fetch('/api/briefing/data');
+      const res = await fetch(getEndpoint('/api/briefing/data'));
       if (res.ok) {
         const data = await res.json();
         setPersonalData(data);
       }
     } catch (_) {}
-  }, []);
+  }, [getEndpoint]);
 
   useEffect(() => {
     fetchTelemetry();
@@ -142,7 +167,7 @@ export function App() {
 
   // Save personal data back to pen drive
   const handleSavePersonalData = async (newData: PersonalData) => {
-    const res = await fetch('/api/briefing/data', {
+    const res = await fetch(getEndpoint('/api/briefing/data'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newData)
@@ -178,7 +203,7 @@ export function App() {
 
     try {
       setHelenaState('BIOMETRIA');
-      const brainRes = await fetch('/api/helena/brain', {
+      const brainRes = await fetch(getEndpoint('/api/helena/brain'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command: 'Helena, bom dia' })
@@ -216,7 +241,7 @@ export function App() {
     setHelenaState('FALANDO');
 
     try {
-      const brainRes = await fetch('/api/helena/brain', {
+      const brainRes = await fetch(getEndpoint('/api/helena/brain'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command: 'Helena, otimizar computador' })
@@ -272,7 +297,7 @@ export function App() {
     soundSynth.playTelemetryBeep();
 
     try {
-      const brainRes = await fetch('/api/helena/brain', {
+      const brainRes = await fetch(getEndpoint('/api/helena/brain'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command })
@@ -303,6 +328,7 @@ export function App() {
       {/* Top Header */}
       <Header
         state={helenaState}
+        status={systemStatus}
         isSpeaking={isSpeaking}
         biometricConfirmed={biometricConfirmed}
         consolidated={consolidated}
@@ -324,6 +350,34 @@ export function App() {
           setIsStudyOpen(true);
         }}
       />
+
+      {/* Cloud Sandbox Notice Banner (Shown ONLY if accessed on remote cloud and local agent is not bridged) */}
+      {systemStatus?.isCloudSandbox && !isLocalHost && !localApiBase && (
+        <div className="w-full bg-amber-950/90 border-b border-amber-500/60 px-4 py-1.5 flex flex-col sm:flex-row items-center justify-between text-xs font-mono text-amber-200 z-40 backdrop-blur-md animate-in slide-in-from-top shrink-0">
+          <div className="flex items-center gap-2 mb-1 sm:mb-0">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping shrink-0" />
+            <span>
+              <strong>MODO CLOUD SANDBOX (INTEL XEON / VERCEL):</strong> Esta aba está visualizando a nuvem. Para controlar o seu computador real (Core i5, 16GB RAM) e executar ferramentas locais, inicie o app local no seu Desktop.
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => {
+                window.location.href = 'http://127.0.0.1:3000';
+              }}
+              className="px-3 py-0.5 rounded-lg bg-cyan-950 border border-cyan-400 text-cyan-300 hover:text-white font-bold text-[11px] shadow-[0_0_10px_rgba(0,240,255,0.4)] transition-all cursor-pointer"
+            >
+              ABRIR LOCALHOST:3000 ↗
+            </button>
+            <button
+              onClick={() => fetchTelemetry()}
+              className="px-2 py-0.5 rounded-lg bg-amber-950 border border-amber-500/50 text-amber-300 hover:text-white text-[11px] transition-colors cursor-pointer"
+            >
+              Conectar Agente
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main HUD Body */}
       <main className="relative flex-1 flex items-center justify-between px-3 sm:px-6 py-1 overflow-hidden min-h-0">

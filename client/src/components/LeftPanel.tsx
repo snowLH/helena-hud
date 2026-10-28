@@ -34,7 +34,28 @@ export const LeftPanel: React.FC<LeftPanelProps> = ({ status }) => {
           <span className="text-[10px] font-mono text-purple-300/80">{cores} NÚCLEOS</span>
         </div>
 
-        <div className="text-[10px] font-mono text-slate-300 truncate mb-1.5" title={cpuModel}>
+        <div className="flex items-center justify-between mb-1">
+          {status?.isLocalAgent ? (
+            <span className="text-[8px] font-mono font-bold text-emerald-300 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-500/40 tracking-wider">
+              🟢 HARDWARE REAL DO SEU PC
+            </span>
+          ) : status?.isCloudSandbox ? (
+            <span className="text-[8px] font-mono font-bold text-amber-300 bg-amber-950/80 px-1.5 py-0.5 rounded border border-amber-500/40 tracking-wider">
+              ☁️ SANDBOX NUVEM (VERCEL)
+            </span>
+          ) : (
+            <span className="text-[8px] font-mono font-bold text-cyan-300 bg-cyan-950/80 px-1.5 py-0.5 rounded border border-cyan-500/40 tracking-wider">
+              HOST NATIVO
+            </span>
+          )}
+          {status?.user?.pcModel && (
+            <span className="text-[8px] font-mono text-slate-400 truncate max-w-[130px]" title={status.user.pcModel}>
+              {status.user.pcModel}
+            </span>
+          )}
+        </div>
+
+        <div className="text-[10px] font-mono text-slate-300 truncate mb-1.5 font-semibold text-cyan-100" title={cpuModel}>
           {cpuModel}
         </div>
 
