@@ -33,9 +33,10 @@
             .catch((err) => console.log('Service Worker notice:', err));
         });
 
+        let hasPriorController = !!navigator.serviceWorker.controller;
         let refreshing = false;
         navigator.serviceWorker.addEventListener('controllerchange', () => {
-          if (!refreshing) {
+          if (!refreshing && hasPriorController) {
             refreshing = true;
             window.location.reload();
           }

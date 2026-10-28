@@ -21,6 +21,7 @@ import {
   Cpu
 } from 'lucide-react';
 import { soundSynth } from '../audio/synth';
+import { speechController } from '../audio/speech';
 
 interface CommandBarProps {
   onExecuteCommand: (command: string) => void;
@@ -55,6 +56,17 @@ export const CommandBar: React.FC<CommandBarProps> = ({
       recognition.onstart = () => {
         setIsListening(true);
         soundSynth.playTelemetryBeep(1.4);
+        // BARGE-IN: Interrompe a fala de Helena imediatamente ao ativar microfone
+        if (speechController.isSpeaking) {
+          speechController.stop();
+        }
+      };
+
+      recognition.onspeechstart = () => {
+        // BARGE-IN: Silencia a fala ao detectar fala do usuário
+        if (speechController.isSpeaking) {
+          speechController.stop();
+        }
       };
 
       recognition.onresult = (event: any) => {
@@ -72,6 +84,11 @@ export const CommandBar: React.FC<CommandBarProps> = ({
 
         const currentText = (final || interim).trim();
         setLiveTranscript(currentText);
+
+        // Se o usuário falou algo, garante interrupção de Helena
+        if (currentText && speechController.isSpeaking) {
+          speechController.stop();
+        }
 
         if (final.trim()) {
           soundSynth.playTelemetryBeep();
@@ -110,6 +127,8 @@ export const CommandBar: React.FC<CommandBarProps> = ({
       recognitionRef.current.stop();
       setIsListening(false);
     } else {
+      // Barge-in: corta fala prévia de Helena imediatamente
+      speechController.stop();
       try {
         recognitionRef.current.start();
       } catch (err) {
@@ -122,11 +141,15 @@ export const CommandBar: React.FC<CommandBarProps> = ({
     e.preventDefault();
     if (!inputVal.trim() || isProcessing) return;
     soundSynth.playTelemetryBeep();
+    // Interrompe fala prévia ao enviar novo comando
+    speechController.stop();
     onExecuteCommand(inputVal.trim());
     setInputVal('');
   };
 
   const quickPills = [
+    { label: 'Helena, por que meu notebook esquenta tanto?', shortLabel: 'Diagnóstico Térmico', icon: <Wrench className="w-3 h-3 text-amber-400" /> },
+    { label: 'Helena, por que meu notebook está lento?', shortLabel: 'Diagnóstico Lentidão', icon: <Gauge className="w-3 h-3 text-cyan-400" /> },
     { label: 'Helena, iniciar modo de estudos', shortLabel: 'Modo Estudos', icon: <GraduationCap className="w-3 h-3 text-emerald-400" /> },
     { label: 'Helena, bom dia', shortLabel: 'Briefing', icon: <Sparkles className="w-3 h-3 text-cyan-400" /> },
     { label: 'Helena, otimizar computador', shortLabel: 'Otimizar PC', icon: <Zap className="w-3 h-3 text-amber-400" /> },

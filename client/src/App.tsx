@@ -309,17 +309,21 @@ export function App() {
         const singleCard = data.cartoes[0];
         setCurrentCard(singleCard);
         setHelenaState('FALANDO');
-        await speechController.speak(singleCard.fala);
+        setIsProcessing(false);
 
         if (data.intent === 'repair' || data.intent === 'otimizar') {
-          await fetchTelemetry();
+          fetchTelemetry();
         }
+
+        // Fala de forma não bloqueante com barge-in habilitado
+        speechController.speak(singleCard.fala).finally(() => {
+          setHelenaState('EM ESPERA');
+        });
       }
     } catch (err) {
       console.error('Erro ao consultar cérebro:', err);
     } finally {
       setIsProcessing(false);
-      setHelenaState('EM ESPERA');
     }
   };
 

@@ -8,6 +8,10 @@ const http = require('http');
 const crypto = require('crypto');
 const dns = require('dns');
 
+const localSecurity = require('./local_security');
+const aiHub = require('./ai_hub');
+const technicalDiagnostics = require('./technical_diagnostics');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -1491,7 +1495,7 @@ app.get('/api/system/status', async (req, res) => {
 });
 
 // 2. POST /api/system/optimize
-app.post('/api/system/optimize', async (req, res) => {
+app.post('/api/system/optimize', localSecurity.requireLocalAuth, async (req, res) => {
   const etapas = [];
   const tmpDir = os.tmpdir();
   let arquivosRemovidos = 0;
@@ -1618,7 +1622,7 @@ app.post('/api/system/optimize', async (req, res) => {
 });
 
 // 3. POST /api/system/repair (Suíte de Reparo & Conserto do Windows)
-app.post('/api/system/repair', async (req, res) => {
+app.post('/api/system/repair', localSecurity.requireLocalAuth, async (req, res) => {
   const report = {
     timestamp: new Date().toISOString(),
     sucesso: true,
@@ -1704,7 +1708,7 @@ app.post('/api/system/repair', async (req, res) => {
 });
 
 // 3.1. POST /api/system/repair/golden (Sequência Dourada: DISM -> SFC -> Chkdsk /scan)
-app.post('/api/system/repair/golden', async (req, res) => {
+app.post('/api/system/repair/golden', localSecurity.requireLocalAuth, async (req, res) => {
   const { mode } = req.body || {};
   try {
     const report = await executeGoldenRepair(mode || 'full');
@@ -1715,7 +1719,7 @@ app.post('/api/system/repair/golden', async (req, res) => {
 });
 
 // 3.2. POST /api/system/registry/optimize & /rollback (Tuning de Baixa Latência com Backup Obrigatório)
-app.post('/api/system/registry/optimize', (req, res) => {
+app.post('/api/system/registry/optimize', localSecurity.requireLocalAuth, (req, res) => {
   try {
     const result = optimizeWindowsRegistry();
     res.json(result);
@@ -1724,7 +1728,7 @@ app.post('/api/system/registry/optimize', (req, res) => {
   }
 });
 
-app.post('/api/system/registry/rollback', (req, res) => {
+app.post('/api/system/registry/rollback', localSecurity.requireLocalAuth, (req, res) => {
   try {
     const result = rollbackWindowsRegistry();
     res.json(result);
@@ -1758,6 +1762,161 @@ app.post('/api/helena/brain/engine/select', (req, res) => {
   });
 });
 
+// =========================================================================
+// H.E.L.E.N.A. FASE 2 & C: AI HUB MULTI-PROVEDORES (Gemini, OpenAI, Claude, Ollama, Core)
+// =========================================================================
+app.get('/api/auth/token', (req, res) => {
+  res.json({ token: localSecurity.getOrCreateLocalToken() });
+});
+
+app.get('/api/ai/config', (req, res) => {
+  try {
+    const config = aiHub.loadAIConfig();
+    const maskedCredentials = aiHub.getMaskedCredentials();
+    res.json({
+      config,
+      maskedCredentials,
+      provedores: aiHub.PROVIDERS_METADATA
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao carregar configurações de IA: ' + err.message });
+  }
+});
+
+app.post('/api/ai/config', (req, res) => {
+  try {
+    const { activeProvider, activeModel } = req.body || {};
+    const updated = aiHub.saveAIConfig({ activeProvider, activeModel });
+    res.json({ success: true, config: updated });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao salvar configurações de IA: ' + err.message });
+  }
+});
+
+app.post('/api/ai/credentials', (req, res) => {
+  try {
+    aiHub.saveCredentials(req.body || {});
+    res.json({ success: true, maskedCredentials: aiHub.getMaskedCredentials() });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao salvar credenciais: ' + err.message });
+  }
+});
+
+app.post('/api/ai/test', async (req, res) => {
+  try {
+    const { providerId, customKey, customModel } = req.body || {};
+    const result = await aiHub.testProviderConnection(providerId, customKey, customModel);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, erro: err.message });
+  }
+});
+
+// =========================================================================
+// H.E.L.E.N.A. FASE 5: DIAGNÓSTICO TÉCNICO AVANÇADO DE NOTEBOOKS & HARDWARE
+// =========================================================================
+app.get('/api/system/diagnostics/hardware', (req, res) => {
+  try {
+    const diag = technicalDiagnostics.collectHardwareDiagnostics();
+    res.json(diag);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao coletar diagnóstico de hardware: ' + err.message });
+  }
+});
+
+app.post('/api/system/diagnostics/guided', (req, res) => {
+  const { symptom } = req.body || {};
+  try {
+    const result = technicalDiagnostics.runGuidedDiagnostic(symptom || 'geral');
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro no diagnóstico guiado: ' + err.message });
+  }
+});
+
+app.post('/api/system/diagnostics/report', (req, res) => {
+  const { symptom, customNotes, acoesExecutadas } = req.body || {};
+  try {
+    const result = technicalDiagnostics.generateTechnicalReport(symptom, customNotes, acoesExecutadas);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao gerar laudo técnico: ' + err.message });
+  }
+});
+
+// =========================================================================
+// H.E.L.E.N.A. FASE 7 & 8: AUTOMAÇÃO, PROGRAMAÇÃO & CRIAÇÃO DE ARQUIVOS
+// =========================================================================
+app.post('/api/helena/tools/files/create', localSecurity.requireLocalAuth, (req, res) => {
+  const { filePath, content, overwrite } = req.body || {};
+  if (!filePath || content === undefined) {
+    return res.status(400).json({ error: 'filePath e content são obrigatórios.' });
+  }
+  try {
+    const targetPath = path.isAbsolute(filePath) ? filePath : path.join(os.homedir(), filePath);
+    const dir = path.dirname(targetPath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    if (fs.existsSync(targetPath) && !overwrite) {
+      return res.status(400).json({ error: 'Arquivo já existe. Forneça overwrite: true para sobrescrever.' });
+    }
+    fs.writeFileSync(targetPath, content, 'utf-8');
+    appendMemoria('arquivo', `Arquivo criado: ${path.basename(targetPath)}`, 'Média');
+    res.json({ success: true, path: targetPath, bytes: Buffer.byteLength(content) });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao criar arquivo: ' + err.message });
+  }
+});
+
+app.post('/api/helena/tools/dev/run-tests', localSecurity.requireLocalAuth, (req, res) => {
+  const { targetDir, command } = req.body || {};
+  const workDir = targetDir && fs.existsSync(targetDir) ? targetDir : __dirname;
+  const cmdToRun = command || 'npm test';
+  try {
+    const output = execSync(cmdToRun, { cwd: workDir, encoding: 'utf-8', timeout: 30000 });
+    res.json({ success: true, output });
+  } catch (err) {
+    res.json({ success: false, output: err.stdout || err.stderr || err.message });
+  }
+});
+
+// =========================================================================
+// H.E.L.E.N.A. FASE 10: PORTABILIDADE & EXPORTAÇÃO/IMPORTAÇÃO DE CONFIGURAÇÕES
+// =========================================================================
+app.get('/api/system/config/export', (req, res) => {
+  try {
+    const perfil = loadPerfilUsuario();
+    const memoria = loadMemoriaLonga();
+    const dados = loadDadosPessoais();
+    const aiConfig = aiHub.loadAIConfig();
+    res.setHeader('Content-Disposition', 'attachment; filename="helena_backup_config.json"');
+    res.json({
+      versao: '2.5',
+      timestamp: new Date().toISOString(),
+      perfil,
+      memoria,
+      dadosPessoais: dados,
+      aiConfig
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao exportar configurações: ' + err.message });
+  }
+});
+
+app.post('/api/system/config/import', localSecurity.requireLocalAuth, (req, res) => {
+  try {
+    const { perfil, dadosPessoais, aiConfig } = req.body || {};
+    if (perfil) savePerfilUsuario(perfil);
+    if (dadosPessoais) {
+      cachedDadosPessoais = dadosPessoais;
+      try { fs.writeFileSync(DADOS_PESSOAIS_PATH, JSON.stringify(dadosPessoais, null, 2), 'utf-8'); } catch (_) {}
+    }
+    if (aiConfig) aiHub.saveAIConfig(aiConfig);
+    res.json({ success: true, message: 'Configurações importadas e aplicadas com sucesso.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao importar configurações: ' + err.message });
+  }
+});
+
 // 3.4. GET & POST /api/helena/mcp (Model Context Protocol: Tools, Resources e Execução Padronizada)
 app.get('/api/helena/mcp/tools', (req, res) => {
   res.json({ tools: getMcpToolsCatalog() });
@@ -1775,7 +1934,7 @@ app.post('/api/helena/mcp/execute', async (req, res) => {
 });
 
 // 3.5. POST /api/system/processes/tree-kill & GET /api/system/processes/zombies
-app.post('/api/system/processes/tree-kill', (req, res) => {
+app.post('/api/system/processes/tree-kill', localSecurity.requireLocalAuth, (req, res) => {
   const { pid, name } = req.body || {};
   const result = executeTreeKill(pid, name);
   res.json(result);
@@ -1952,7 +2111,7 @@ app.get('/api/system/processes', (req, res) => {
 });
 
 // 8.2. POST /api/system/processes/kill (Finalizar Processo Seguro)
-app.post('/api/system/processes/kill', (req, res) => {
+app.post('/api/system/processes/kill', localSecurity.requireLocalAuth, (req, res) => {
   const { pid, name } = req.body;
   if (!pid && !name) {
     return res.status(400).json({ error: 'PID ou nome do processo não fornecido' });
@@ -2181,122 +2340,67 @@ app.post('/api/helena/brain', async (req, res) => {
   const totalRAM = Math.round((totalMem / (1024 ** 3)) * 10) / 10;
   const ramPercent = Math.round((usedMem / totalMem) * 100);
 
-  // Helper para consultar LLM Local (Ollama Qwen2.5-Coder com think: false ou llama-server Hermes-3)
-  async function queryLocalLLM(promptText) {
+  // Helper para consultar AI Hub Multi-Provedores (Gemini, OpenAI, Claude, Ollama, Core)
+  async function queryAIHub(promptText, history = []) {
     const perfil = loadPerfilUsuario();
     const memoria = loadMemoriaLonga();
     const recentMem = (memoria.memoriasEpisodicas || []).slice(0, 3).map(m => `- ${m.resumo}`).join('; ');
     const userRole = `${perfil.usuario?.titulo || 'Comandante'} ${perfil.usuario?.nome || 'Operador'}`;
 
-    const systemPrompt = `Você é H.E.L.E.N.A., o COPILOTO LOCAL DEFINITIVO e entidade central do sistema operacional (arquitetura Hermes-3 / Qwen2.5-Coder com Open Interpreter e MCP local). Usuário atual: ${userRole}. Memórias e aprendizados recentes: [${recentMem || 'Nenhum evento registrado ainda'}].
+    const systemPrompt = `Você é H.E.L.E.N.A., o COPILOTO PESSOAL DEFINITIVO do sistema operacional Windows (computador ${os.hostname()}, CPU ${os.cpus()[0]?.model || 'Intel Core i5'}). Usuário atual: ${userRole}. Memórias e aprendizados recentes: [${recentMem || 'Nenhum evento registrado ainda'}].
 Você atua como Engenheiro de Sistemas Sênior, Desenvolvedor Full-Stack, Analista Forense e Administrador do Windows.
 Diretrizes:
-- Resolução direta e pragmática: aja, compile e execute localmente sem perguntas supérfluas.
-- Diagnóstico e Reparação: priorize inspeções forenses lógicas (DISM -> SFC -> chkdsk /scan, psutil, WMI) e extermínio de processos com taskkill /PID /T /F.
-- Otimizações de Registro: salvaguarda prévia obrigatória (reg export), ajustes de latência (Win32PrioritySeparation, DisablePagingExecutive, TCPNoDelay).
-- Segurança & HITL: solicite confirmação explícita apenas em operações destrutivas irreversíveis.
-- Síntese acústica: respostas concisas, elegantes, assertivas e perfeitamente fluidas para fala em Português do Brasil.`;
+- Resolução direta e pragmática: auxilie em tarefas de desenvolvimento, diagnósticos de hardware, automações do computador e estudos.
+- Diagnóstico e Manutenção: priorize inspeções forenses lógicas (DISM, SFC, WMI, Event Viewer) e segurança operacional.
+- Segurança & HITL: solicite confirmação explícita em operações destrutivas ou irreversíveis.
+- Síntese acústica: respostas concisas, elegantes, assertivas e naturais para fala em Português do Brasil.`;
 
-    const tryOllama = () => new Promise((resolve) => {
-      const postData = JSON.stringify({
-        model: currentOllamaModel || "qwen2.5-coder:7b",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: promptText }
-        ],
-        stream: false,
-        options: {
-          temperature: 0.7,
-          num_predict: 220
-        },
-        think: false
-      });
-
-      const options = {
-        hostname: '127.0.0.1',
-        port: 11434,
-        path: '/api/chat',
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(postData)
-        },
-        timeout: 2500
-      };
-
-      const req = http.request(options, (res) => {
-        let d = '';
-        res.on('data', chunk => d += chunk);
-        res.on('end', () => {
-          try {
-            const parsed = JSON.parse(d);
-            const content = parsed.message?.content;
-            if (content) return resolve({ success: true, text: content.trim(), motor: `Ollama ${currentOllamaModel || 'Qwen2.5-Coder'}` });
-          } catch (_) {}
-          resolve({ success: false });
-        });
-      });
-      req.on('error', () => resolve({ success: false }));
-      req.on('timeout', () => { req.destroy(); resolve({ success: false }); });
-      req.write(postData);
-      req.end();
+    const res = await aiHub.queryAI({
+      prompt: promptText,
+      systemPrompt,
+      conversationHistory: history
     });
 
-    const tryLlama = () => new Promise((resolve) => {
-      const postData = JSON.stringify({
-        model: "hermes-3",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: promptText }
-        ],
-        temperature: 0.7,
-        max_tokens: 220
-      });
-
-      const options = {
-        hostname: '127.0.0.1',
-        port: 8080,
-        path: '/v1/chat/completions',
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(postData)
-        },
-        timeout: 1500
+    if (res && res.success) {
+      return {
+        success: true,
+        text: res.texto,
+        motor: `${res.provedor} (${res.modelo})`
       };
-
-      const req = http.request(options, (res) => {
-        let d = '';
-        res.on('data', chunk => d += chunk);
-        res.on('end', () => {
-          try {
-            const parsed = JSON.parse(d);
-            const content = parsed.choices?.[0]?.message?.content;
-            if (content) return resolve({ success: true, text: content.trim(), motor: 'llama-server Hermes-3 (.gguf)' });
-          } catch (_) {}
-          resolve({ success: false });
-        });
-      });
-      req.on('error', () => resolve({ success: false }));
-      req.on('timeout', () => { req.destroy(); resolve({ success: false }); });
-      req.write(postData);
-      req.end();
-    });
-
-    if (currentSelectedEngineId === 'ollama') {
-      const oRes = await tryOllama();
-      if (oRes.success) return oRes;
-    } else if (currentSelectedEngineId === 'llama_server') {
-      const lRes = await tryLlama();
-      if (lRes.success) return lRes;
-    } else {
-      const oRes = await tryOllama();
-      if (oRes.success) return oRes;
-      const lRes = await tryLlama();
-      if (lRes.success) return lRes;
     }
+    return { success: false, text: res?.texto || 'Erro no processamento neural.' };
+  }
 
-    return { success: false };
+  // 0.000. DIAGNÓSTICO TÉCNICO DE NOTEBOOKS E HARDWARE (FASE 5)
+  if (
+    cmd.includes('diagnost') || cmd.includes('notebook esquenta') ||
+    cmd.includes('pc esquenta') || cmd.includes('superaquec') ||
+    cmd.includes('cooler') || cmd.includes('ventoinha') ||
+    cmd.includes('pasta térmica') || cmd.includes('pasta termica') ||
+    cmd.includes('por que está lento') || cmd.includes('por que esta lento') ||
+    cmd.includes('notebook lento') || cmd.includes('computador lento') ||
+    cmd.includes('tela azul') || cmd.includes('bsod') ||
+    cmd.includes('bateria viciada') || cmd.includes('saúde da bateria') ||
+    cmd.includes('saude da bateria') || cmd.includes('laudo técnico') ||
+    cmd.includes('laudo tecnico') || cmd.includes('defeito na ram') ||
+    cmd.includes('diagnóstico de hardware')
+  ) {
+    const resDiag = technicalDiagnostics.runGuidedDiagnostic(cleanCmd || rawCmd);
+    const diag = resDiag.diagnostico || resDiag;
+    appendMemoria('diagnostico', `Diagnóstico técnico executado para o sintoma: ${diag.sintomaIdentificado}`, 'Alta');
+    return res.json({
+      intent: 'diagnostico_tecnico',
+      cartoes: [
+        {
+          id: 'card-diag-' + Date.now(),
+          titulo: `Diagnóstico: ${diag.categoria || diag.sintomaIdentificado}`,
+          tipo: 'diagnostico_tecnico',
+          subtitulo: `Confiança: ${diag.nivelConfianca || 'Alta'} | Categoria: ${diag.categoria}`,
+          fala: diag.resumoFala || 'Diagnóstico concluído com êxito.',
+          diagnosticoTecnico: { ...diag, hardwareInfo: resDiag.hardwareInfo }
+        }
+      ]
+    });
   }
 
   // 0.001. MODO DE ESTUDOS & SEMANA DE PROVAS
@@ -3079,20 +3183,20 @@ Diretrizes:
     });
   }
 
-  // 9. INTENT GERAL / PERGUNTAS LIVRES
-  const llmResult = await queryLocalLLM(rawCmd || "Status do sistema");
+  // 9. INTENT GERAL / PERGUNTAS LIVRES VIA AI HUB MULTI-PROVEDORES
+  const llmResult = await queryAIHub(rawCmd || "Status do sistema", req.body.historico || []);
   if (llmResult.success) {
     return res.json({
       intent: 'geral',
       cartoes: [
         {
           id: "card-resposta",
-          titulo: "H.E.L.E.N.A. Resposta Neural",
+          titulo: "H.E.L.E.N.A. — Resposta Cognitiva",
           tipo: "resposta_neural",
-          subtitulo: "Processado via LLM Local (.gguf)",
+          subtitulo: `Processado via ${llmResult.motor}`,
           fala: llmResult.text,
           texto: llmResult.text,
-          motor: "LLM Local Portátil"
+          motor: llmResult.motor
         }
       ]
     });

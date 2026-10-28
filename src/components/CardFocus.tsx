@@ -209,6 +209,10 @@ export const CardFocus: React.FC<CardFocusProps> = ({
         return { label: 'MODO DE TRABALHO & PRODUÇÃO', color: 'border-cyan-400 text-cyan-300 bg-cyan-950/80', icon: <Briefcase className="w-3.5 h-3.5 text-cyan-400" /> };
       case 'memoria_longa':
         return { label: 'MEMÓRIA CONTÍNUA (HONCHO)', color: 'border-purple-400 text-purple-300 bg-purple-950/80', icon: <Brain className="w-3.5 h-3.5 text-purple-400" /> };
+      case 'diagnostico_tecnico':
+        return { label: 'DIAGNÓSTICO TÉCNICO FORENSE (HARDWARE & NOTEBOOK)', color: 'border-amber-400 text-amber-300 bg-amber-950/80', icon: <Wrench className="w-3.5 h-3.5 text-amber-400" /> };
+      case 'ia_config':
+        return { label: 'CENTRAL DE PROVEDORES DE IA', color: 'border-cyan-400 text-cyan-300 bg-cyan-950/80', icon: <Terminal className="w-3.5 h-3.5 text-cyan-400" /> };
       default:
         return { label: 'CONSOLE DE RESPOSTA DA H.E.L.E.N.A.', color: 'border-cyan-400 text-cyan-300 bg-cyan-950/80', icon: <Terminal className="w-3.5 h-3.5 text-cyan-400" /> };
     }
@@ -1094,6 +1098,157 @@ export const CardFocus: React.FC<CardFocusProps> = ({
                   className="px-4 py-2 rounded-xl border border-rose-400 bg-rose-950 hover:bg-rose-900 text-rose-200 text-xs font-bold transition-all shadow-[0_0_15px_rgba(244,63,94,0.4)] cursor-pointer"
                 >
                   ✔ CONFIRMAR EXECUÇÃO
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* DIAGNÓSTICO TÉCNICO FORENSE (FASE 5) */}
+          {card.tipo === 'diagnostico_tecnico' && card.diagnosticoTecnico && (
+            <div className="space-y-4 font-mono text-xs">
+              {/* Header Badge & Severity */}
+              <div className="p-3.5 rounded-xl border border-amber-500/40 bg-amber-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <span className="text-amber-400 font-bold text-sm tracking-wide">
+                    {card.diagnosticoTecnico.categoria}
+                  </span>
+                  <p className="text-[11px] text-slate-300 mt-0.5">
+                    Sintoma: <span className="text-cyan-300 font-semibold">{card.diagnosticoTecnico.sintomaIdentificado}</span>
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-1 rounded-md bg-amber-950/80 border border-amber-400 text-amber-300 text-[10px] font-bold">
+                    CONFIANÇA: {card.diagnosticoTecnico.nivelConfianca || 'ALTA'}
+                  </span>
+                  <span className="px-2.5 py-1 rounded-md bg-cyan-950/80 border border-cyan-400 text-cyan-300 text-[10px] font-bold">
+                    INSPEÇÃO NÃO INVASIVA
+                  </span>
+                </div>
+              </div>
+
+              {/* Hardware Quick Summary */}
+              {card.diagnosticoTecnico.hardwareInfo && (
+                <div className="p-2.5 rounded-xl border border-slate-700 bg-slate-900/60 text-[11px] grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div>
+                    <span className="text-slate-400 text-[9px] block">PROCESSADOR</span>
+                    <span className="text-cyan-300 font-semibold truncate block" title={card.diagnosticoTecnico.hardwareInfo.processador?.modelo}>
+                      {card.diagnosticoTecnico.hardwareInfo.processador?.modelo?.split('@')[0] || 'Intel Core i5'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 text-[9px] block">MEMÓRIA RAM</span>
+                    <span className="text-cyan-300 font-semibold block">
+                      {card.diagnosticoTecnico.hardwareInfo.memoriaRAM?.totalGB} GB ({card.diagnosticoTecnico.hardwareInfo.memoriaRAM?.usadoGB} GB em uso)
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 text-[9px] block">PARTIÇÃO C:</span>
+                    <span className="text-cyan-300 font-semibold block">
+                      {card.diagnosticoTecnico.hardwareInfo.armazenamento?.particaoC?.livreGB} GB Livres
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 text-[9px] block">SSD SMART</span>
+                    <span className="text-emerald-400 font-semibold block">
+                      {card.diagnosticoTecnico.hardwareInfo.armazenamento?.discosFisicos?.[0]?.saude || 'Saudável (OK)'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Causes & Probabilities */}
+              {card.diagnosticoTecnico.causasProvaveis && card.diagnosticoTecnico.causasProvaveis.length > 0 && (
+                <div className="space-y-2">
+                  <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider block">
+                    Hipóteses Diagnósticas & Evidências Observadas:
+                  </span>
+                  <div className="space-y-2">
+                    {card.diagnosticoTecnico.causasProvaveis.map((c: any, idx: number) => (
+                      <div key={idx} className="p-3 rounded-xl border border-slate-700 bg-slate-900/80">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <span className="text-cyan-200 font-bold text-xs">{c.hipotese}</span>
+                          <span className="px-2 py-0.5 rounded bg-amber-950/80 border border-amber-500/40 text-amber-300 text-[10px] font-bold">
+                            Probabilidade: {c.probabilidade}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-300 leading-relaxed">{c.evidencia}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Recommended Non-Destructive Tests */}
+              {card.diagnosticoTecnico.testesRecomendados && card.diagnosticoTecnico.testesRecomendados.length > 0 && (
+                <div className="p-3.5 rounded-xl border border-cyan-500/30 bg-cyan-950/20 space-y-2">
+                  <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider block">
+                    Protocolo de Testes Não Destrutivos Recomendados:
+                  </span>
+                  <ul className="space-y-1.5 text-[11px] text-cyan-100">
+                    {card.diagnosticoTecnico.testesRecomendados.map((t: string, idx: number) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-cyan-400 font-bold shrink-0">▸</span>
+                        <span>{t}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Physical Maintenance Warnings & ESD Precautions */}
+              {card.diagnosticoTecnico.orientacoesFisicas && card.diagnosticoTecnico.orientacoesFisicas.length > 0 && (
+                <div className="p-3.5 rounded-xl border border-rose-500/40 bg-rose-950/20 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span className="text-[10px] text-rose-300 font-bold uppercase tracking-wider">
+                      Orientações de Manutenção Física & Segurança ESD:
+                    </span>
+                  </div>
+                  <div className="space-y-1.5 text-[11px] text-rose-100 leading-relaxed">
+                    {card.diagnosticoTecnico.orientacoesFisicas.map((o: string, idx: number) => (
+                      <p key={idx} className="p-2 rounded-lg bg-slate-900/60 border border-rose-900/40">
+                        {o}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Action Button: Generate Technical Report */}
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <span className="text-[10px] text-slate-400">
+                  Relatório oficial em formato Markdown com assinatura digital do copiloto.
+                </span>
+                <button
+                  onClick={async () => {
+                    soundSynth.playTelemetryBeep();
+                    try {
+                      const res = await fetch('/api/system/diagnostics/report', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          symptom: card.diagnosticoTecnico?.sintomaIdentificado,
+                          diagnostico: card.diagnosticoTecnico
+                        })
+                      });
+                      const data = await res.json();
+                      if (data.sucesso) {
+                        setActionFeedback(`Laudo emitido com sucesso: ${data.arquivo}`);
+                        const blob = new Blob([data.conteudoMarkdown], { type: 'text/markdown' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = data.arquivo;
+                        a.click();
+                      }
+                    } catch (err: any) {
+                      setActionFeedback('Erro ao emitir laudo: ' + err.message);
+                    }
+                  }}
+                  className="w-full sm:w-auto px-4 py-2 rounded-xl border border-amber-400 bg-amber-950 hover:bg-amber-900 text-amber-200 text-xs font-bold transition-all shadow-[0_0_15px_rgba(245,158,11,0.3)] cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <FileText className="w-3.5 h-3.5 text-amber-400" />
+                  <span>📄 EMITIR & BAIXAR LAUDO TÉCNICO</span>
                 </button>
               </div>
             </div>

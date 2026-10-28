@@ -374,7 +374,9 @@ export interface HelenaCard {
     | 'otimizacao_registro'
     | 'motores_cognitivos'
     | 'mcp_console'
-    | 'hitl_confirmacao';
+    | 'hitl_confirmacao'
+    | 'diagnostico_tecnico'
+    | 'ia_config';
   subtitulo: string;
   fala: string;
   metricas?: Array<{ label: string; valor: string; detalhe?: string }>;
@@ -441,6 +443,33 @@ export interface HelenaCard {
     resources: Array<{ uri: string; name: string; description: string }>;
   };
   hitlConfirmacao?: HitlRequest;
+  diagnosticoTecnico?: GuidedDiagnostic;
+  aiConfigData?: any;
+}
+
+export interface CauseItem {
+  hipotese: string;
+  probabilidade: string;
+  evidencia: string;
+}
+
+export interface GuidedDiagnostic {
+  sintomaIdentificado: string;
+  categoria: string;
+  nivelConfianca: string;
+  causasProvaveis: CauseItem[];
+  testesRecomendados: string[];
+  orientacoesFisicas: string[];
+  planoAcao: string[];
+  resumoFala: string;
+  hardwareInfo?: any;
+}
+
+export interface AIProviderConfig {
+  activeProvider: string;
+  activeModel: string;
+  temperatura?: number;
+  fallbackAutomatico?: boolean;
 }
 
 export type HelenaState = 'EM ESPERA' | 'FALANDO' | 'PROCESSANDO' | 'BIOMETRIA';

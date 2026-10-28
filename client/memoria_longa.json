@@ -21,6 +21,62 @@
   ],
   "memoriasEpisodicas": [
     {
+      "id": "mem-1793153356911-1jclwn",
+      "tipo": "diagnostico",
+      "resumo": "Diagnóstico técnico executado para o sintoma: por que meu notebook esquenta tanto?",
+      "data": "2026-10-28T02:09:16.911Z",
+      "relevancia": "Alta"
+    },
+    {
+      "id": "mem-1793153261014-fl8sq",
+      "tipo": "diagnostico",
+      "resumo": "Diagnóstico técnico executado para o sintoma: por que meu notebook esquenta tanto?",
+      "data": "2026-10-28T02:07:41.014Z",
+      "relevancia": "Alta"
+    },
+    {
+      "id": "mem-1793152961916-8fv6j",
+      "tipo": "diagnostico",
+      "resumo": "Diagnóstico técnico executado para o sintoma: por que meu notebook esquenta tanto?",
+      "data": "2026-10-28T02:02:41.916Z",
+      "relevancia": "Alta"
+    },
+    {
+      "id": "mem-1793152857178-h9pjqg",
+      "tipo": "diagnostico",
+      "resumo": "Diagnóstico técnico executado para o sintoma: por que meu notebook esquenta tanto?",
+      "data": "2026-10-28T02:00:57.178Z",
+      "relevancia": "Alta"
+    },
+    {
+      "id": "mem-1793152794088-y2sgvh",
+      "tipo": "diagnostico",
+      "resumo": "Diagnóstico técnico executado para o sintoma: por que meu notebook esquenta tanto?",
+      "data": "2026-10-28T01:59:54.088Z",
+      "relevancia": "Alta"
+    },
+    {
+      "id": "mem-1793152285121-kflxxg",
+      "tipo": "registro",
+      "resumo": "Ajuste de baixa latência no Registro com backup em reg_backup_2026-10-28T01-51-25-003Z.reg.",
+      "data": "2026-10-28T01:51:25.121Z",
+      "relevancia": "Alta"
+    },
+    {
+      "id": "mem-1793152261925-gbm33t",
+      "tipo": "diagnostico",
+      "resumo": "Diagnóstico técnico executado para o sintoma: por que meu notebook esquenta tanto?",
+      "data": "2026-10-28T01:51:01.925Z",
+      "relevancia": "Alta"
+    },
+    {
+      "id": "mem-1793152137605-mevfm",
+      "tipo": "diagnostico",
+      "resumo": "Diagnóstico técnico executado para o sintoma: undefined",
+      "data": "2026-10-28T01:48:57.605Z",
+      "relevancia": "Alta"
+    },
+    {
       "id": "mem-1793136834665-2cuq2h",
       "tipo": "registro",
       "resumo": "Ajuste de baixa latência no Registro com backup em reg_backup_2026-10-27T21-33-54-532Z.reg.",
@@ -302,10 +358,10 @@
     }
   ],
   "estatisticas": {
-    "totalInteracoes": 55,
+    "totalInteracoes": 63,
     "otimizacoesRealizadas": 8,
     "briefingsExecutados": 9,
     "arquivosOrganizados": 27,
-    "ultimaInteracao": "2026-10-27T21:33:54.665Z"
+    "ultimaInteracao": "2026-10-28T02:09:16.911Z"
   }
 }

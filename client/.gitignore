@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+client/node_modules/
+
+# Production build
+dist/
+client/dist/
+
+# Runtime caches & temporary audio
+runtime/
+client/runtime/
+backups/
+client/backups/
+*.mp3
+*.wav
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+
+# OS files
+.DS_Store
+Thumbs.db

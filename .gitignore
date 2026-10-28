@@ -7,7 +7,10 @@ dist/
 client/dist/
 
 # Runtime caches & temporary audio
-runtime/tts_cache/
+runtime/
+client/runtime/
+backups/
+client/backups/
 *.mp3
 *.wav
 

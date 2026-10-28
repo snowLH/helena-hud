@@ -31,6 +31,8 @@ import { speechController, JARVIS_VOICE_PRESETS } from '../audio/speech';
 
 export type SettingsTabType =
   | 'jarvis_voz'
+  | 'ia_provedores'
+  | 'diagnostico_hardware'
   | 'processos'
   | 'benchmark'
   | 'diagnostico_rede'
@@ -118,6 +120,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [networkInfo, setNetworkInfo] = useState<{ localUrl: string; networkUrl: string; ip: string } | null>(null);
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
 
+  // AI Hub state
+  const [aiConfig, setAiConfig] = useState<any>(null);
+  const [maskedCreds, setMaskedCreds] = useState<any>(null);
+  const [providersMeta, setProvidersMeta] = useState<any>(null);
+  const [geminiKeyInput, setGeminiKeyInput] = useState<string>('');
+  const [openaiKeyInput, setOpenaiKeyInput] = useState<string>('');
+  const [claudeKeyInput, setClaudeKeyInput] = useState<string>('');
+  const [testingProvider, setTestingProvider] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<{ [key: string]: any }>({});
+  const [savingAiKeys, setSavingAiKeys] = useState<boolean>(false);
+
+  // Hardware Diagnostics state
+  const [hwDiag, setHwDiag] = useState<any>(null);
+  const [loadingHwDiag, setLoadingHwDiag] = useState<boolean>(false);
+
   useEffect(() => {
     if (initialTab) {
       setActiveTab(initialTab);
@@ -138,9 +155,108 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       .then(info => setNetworkInfo(info))
       .catch(() => {});
 
-    // Fetch startup apps
+    // Fetch startup apps, AI config & HW diag
     fetchStartupApps();
+    fetchAiConfig();
+    fetchHwDiag();
   }, [personalData, isOpen]);
+
+  const fetchAiConfig = async () => {
+    try {
+      const res = await fetch('/api/ai/config');
+      if (res.ok) {
+        const d = await res.json();
+        setAiConfig(d.config);
+        setMaskedCreds(d.maskedCredentials);
+        setProvidersMeta(d.provedores);
+      }
+    } catch (_) {}
+  };
+
+  const fetchHwDiag = async () => {
+    setLoadingHwDiag(true);
+    try {
+      const res = await fetch('/api/system/diagnostics/hardware');
+      if (res.ok) {
+        const d = await res.json();
+        setHwDiag(d);
+      }
+    } catch (_) {}
+    finally {
+      setLoadingHwDiag(false);
+    }
+  };
+
+  const handleSaveAiCredentials = async () => {
+    setSavingAiKeys(true);
+    soundSynth.playTelemetryBeep();
+    try {
+      const body: any = {};
+      if (geminiKeyInput.trim()) body.geminiKey = geminiKeyInput.trim();
+      if (openaiKeyInput.trim()) body.openaiKey = openaiKeyInput.trim();
+      if (claudeKeyInput.trim()) body.claudeKey = claudeKeyInput.trim();
+
+      const res = await fetch('/api/ai/credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (res.ok) {
+        const d = await res.json();
+        setMaskedCreds(d.maskedCredentials);
+        setGeminiKeyInput('');
+        setOpenaiKeyInput('');
+        setClaudeKeyInput('');
+        soundSynth.playBiometricConfirmed();
+        alert('Credenciais salvas com segurança no armazenamento local!');
+      }
+    } catch (err: any) {
+      alert('Erro ao salvar credenciais: ' + err.message);
+    } finally {
+      setSavingAiKeys(false);
+    }
+  };
+
+  const handleTestProvider = async (providerId: string) => {
+    setTestingProvider(providerId);
+    soundSynth.playTelemetryBeep();
+    try {
+      const res = await fetch('/api/ai/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ providerId })
+      });
+      const data = await res.json();
+      setTestResult(prev => ({ ...prev, [providerId]: data }));
+      if (data.success) {
+        soundSynth.playBiometricConfirmed();
+      }
+    } catch (err: any) {
+      setTestResult(prev => ({ ...prev, [providerId]: { success: false, erro: err.message } }));
+    } finally {
+      setTestingProvider(null);
+    }
+  };
+
+  const handleSelectActiveProvider = async (providerId: string, model?: string) => {
+    soundSynth.playTelemetryBeep();
+    try {
+      const res = await fetch('/api/ai/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ activeProvider: providerId, activeModel: model })
+      });
+      if (res.ok) {
+        const d = await res.json();
+        setAiConfig(d.config);
+      }
+    } catch (_) {}
+  };
+
+  const handleExportConfig = () => {
+    soundSynth.playTelemetryBeep();
+    window.open('/api/system/config/export', '_blank');
+  };
 
   const fetchStartupApps = async () => {
     setLoadingStartup(true);
@@ -359,6 +475,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {(
             [
               { id: 'jarvis_voz', label: 'Voz Helena' },
+              { id: 'ia_provedores', label: 'IA & Provedores' },
+              { id: 'diagnostico_hardware', label: 'Hardware' },
               { id: 'processos', label: 'Processos' },
               { id: 'benchmark', label: 'Benchmark' },
               { id: 'diagnostico_rede', label: 'Diagnóstico' },
@@ -378,6 +496,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 setActiveTab(tab.id);
                 if (tab.id === 'processos' && processesList.length === 0) {
                   fetchProcesses();
+                }
+                if (tab.id === 'ia_provedores') {
+                  fetchAiConfig();
+                }
+                if (tab.id === 'diagnostico_hardware') {
+                  fetchHwDiag();
                 }
               }}
               className={`px-2.5 py-1 rounded-lg uppercase tracking-wider font-semibold transition-all ${
@@ -556,6 +680,298 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* TAB: IA & PROVEDORES UNIVERSAIS (FASE 2 & C) */}
+          {activeTab === 'ia_provedores' && (
+            <div className="space-y-4">
+              {/* Header Box */}
+              <div className="p-3.5 rounded-xl border border-cyan-500/50 bg-cyan-950/40 shadow-[0_0_20px_rgba(0,240,255,0.2)]">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2 text-cyan-300 font-bold text-sm">
+                    <Bot className="w-4 h-4 text-cyan-400" />
+                    <span>Núcleo de Inteligência Multi-Provedores</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-400 text-emerald-300 text-[10px] font-bold">
+                    PROVEDOR ATIVO: {aiConfig?.activeProvider?.toUpperCase() || 'CORE'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  A H.E.L.E.N.A. alterna dinamicamente entre IA em nuvem de alta potência (Gemini, OpenAI, Claude) e processamento 100% local e privado (Ollama, Core Offline). As chaves são mantidas estritamente no seu computador.
+                </p>
+              </div>
+
+              {/* Provider Selection Cards */}
+              <div className="space-y-2">
+                <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider block">
+                  Selecione o Provedor Cognitivo Ativo:
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {providersMeta && Object.entries(providersMeta).map(([pId, meta]: [string, any]) => {
+                    const isSelected = (aiConfig?.activeProvider || 'core') === pId;
+                    const test = testResult[pId];
+                    return (
+                      <div
+                        key={pId}
+                        onClick={() => handleSelectActiveProvider(pId, meta.modeloPadrao)}
+                        className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
+                          isSelected
+                            ? 'border-cyan-400 bg-cyan-950/70 shadow-[0_0_15px_rgba(0,240,255,0.3)]'
+                            : 'border-slate-800 bg-slate-900/60 hover:border-slate-600'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <span className="text-white font-bold text-xs">{meta.nome}</span>
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase font-semibold ${
+                              meta.tipo === 'cloud'
+                                ? 'bg-purple-950 border border-purple-500/50 text-purple-300'
+                                : 'bg-emerald-950 border border-emerald-500/50 text-emerald-300'
+                            }`}>
+                              {meta.tipo}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 mb-2 leading-tight">{meta.descricao}</p>
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+                          <span className="text-[9px] text-cyan-300 font-mono">
+                            Modelo: {meta.modeloPadrao}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={testingProvider === pId}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleTestProvider(pId);
+                            }}
+                            className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-[9px] font-bold border border-slate-600 cursor-pointer"
+                          >
+                            {testingProvider === pId ? 'Testando...' : 'Testar Conexão'}
+                          </button>
+                        </div>
+
+                        {test && (
+                          <div className={`mt-2 p-1.5 rounded text-[9px] font-mono ${
+                            test.success ? 'bg-emerald-950/80 border border-emerald-500 text-emerald-300' : 'bg-rose-950/80 border border-rose-500 text-rose-300'
+                          }`}>
+                            {test.success ? `✔ Conectado (${test.duracaoMs}ms)` : `✕ ${test.erro}`}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* API Keys Configuration */}
+              <div className="p-3.5 rounded-xl border border-purple-500/30 bg-purple-950/20 space-y-3">
+                <span className="text-[10px] text-purple-300 font-bold uppercase tracking-wider block">
+                  Gerenciamento Seguro de Chaves de API (Nuvem):
+                </span>
+
+                {/* Gemini */}
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-[11px] text-slate-300">Google Gemini API Key</label>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      Status: {maskedCreds?.hasGemini ? <span className="text-emerald-400 font-bold">Ativa ({maskedCreds.geminiKey})</span> : <span className="text-amber-400">Não configurada</span>}
+                    </span>
+                  </div>
+                  <input
+                    type="password"
+                    value={geminiKeyInput}
+                    onChange={(e) => setGeminiKeyInput(e.target.value)}
+                    placeholder="Cole aqui nova AIzaSy..."
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900 text-xs text-white placeholder-slate-500 outline-none focus:border-cyan-400"
+                  />
+                </div>
+
+                {/* OpenAI */}
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-[11px] text-slate-300">OpenAI API Key (GPT-4o)</label>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      Status: {maskedCreds?.hasOpenAI ? <span className="text-emerald-400 font-bold">Ativa ({maskedCreds.openaiKey})</span> : <span className="text-amber-400">Não configurada</span>}
+                    </span>
+                  </div>
+                  <input
+                    type="password"
+                    value={openaiKeyInput}
+                    onChange={(e) => setOpenaiKeyInput(e.target.value)}
+                    placeholder="Cole aqui nova sk-proj-..."
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900 text-xs text-white placeholder-slate-500 outline-none focus:border-cyan-400"
+                  />
+                </div>
+
+                {/* Claude */}
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-[11px] text-slate-300">Anthropic Claude API Key</label>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      Status: {maskedCreds?.hasClaude ? <span className="text-emerald-400 font-bold">Ativa ({maskedCreds.claudeKey})</span> : <span className="text-amber-400">Não configurada</span>}
+                    </span>
+                  </div>
+                  <input
+                    type="password"
+                    value={claudeKeyInput}
+                    onChange={(e) => setClaudeKeyInput(e.target.value)}
+                    placeholder="Cole aqui nova sk-ant-..."
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900 text-xs text-white placeholder-slate-500 outline-none focus:border-cyan-400"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  disabled={savingAiKeys || (!geminiKeyInput && !openaiKeyInput && !claudeKeyInput)}
+                  onClick={handleSaveAiCredentials}
+                  className="w-full py-2 rounded-xl border border-purple-400 bg-purple-950 hover:bg-purple-900 text-purple-200 text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(168,85,247,0.3)] cursor-pointer"
+                >
+                  {savingAiKeys ? 'Salvando...' : '💾 SALVAR CREDENCIAIS COM SEGURANÇA'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: DIAGNÓSTICO FORENSE DE HARDWARE REAL & LAUDO (FASE 5) */}
+          {activeTab === 'diagnostico_hardware' && (
+            <div className="space-y-4">
+              {/* Header Box */}
+              <div className="p-3.5 rounded-xl border border-amber-500/50 bg-amber-950/40 shadow-[0_0_20px_rgba(245,158,11,0.2)]">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2 text-amber-300 font-bold text-sm">
+                    <Wrench className="w-4 h-4 text-amber-400" />
+                    <span>Diagnóstico Forense de Hardware do Computador</span>
+                  </div>
+                  <button
+                    onClick={fetchHwDiag}
+                    disabled={loadingHwDiag}
+                    className="px-2 py-0.5 rounded bg-slate-800 border border-slate-600 text-slate-300 text-[10px] font-bold hover:text-white cursor-pointer"
+                  >
+                    {loadingHwDiag ? 'Lendo WMI...' : 'Atualizar Dados'}
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  Inspeção em tempo real das especificações físicas, BIOS, topologia de núcleos, integridade SMART do SSD e histórico de erros críticos do Windows Event Viewer.
+                </p>
+              </div>
+
+              {hwDiag && (
+                <div className="space-y-3 font-mono">
+                  {/* Grid 1: Host & CPU */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div className="p-3 rounded-xl border border-slate-700 bg-slate-900/80">
+                      <span className="text-[9px] text-slate-400 uppercase tracking-wider block">DISPOSITIVO & BIOS</span>
+                      <span className="text-white font-bold text-xs mt-1 block">{hwDiag.computador?.modelo} ({hwDiag.hostname})</span>
+                      <span className="text-[10px] text-slate-300 mt-1 block">Fabricante: {hwDiag.computador?.fabricante}</span>
+                      <span className="text-[10px] text-cyan-300 block">BIOS: {hwDiag.computador?.bios} ({hwDiag.computador?.dataBios})</span>
+                    </div>
+
+                    <div className="p-3 rounded-xl border border-slate-700 bg-slate-900/80">
+                      <span className="text-[9px] text-slate-400 uppercase tracking-wider block">PROCESSADOR (CPU)</span>
+                      <span className="text-cyan-300 font-bold text-xs mt-1 block">{hwDiag.processador?.modelo}</span>
+                      <span className="text-[10px] text-slate-300 mt-1 block">
+                        Topologia: {hwDiag.processador?.nucleosFisicos} Núcleos Físicos / {hwDiag.processador?.threadsLogicos} Threads Lógicos ({hwDiag.processador?.arquitetura})
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Grid 2: RAM & SSD */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div className="p-3 rounded-xl border border-slate-700 bg-slate-900/80">
+                      <span className="text-[9px] text-slate-400 uppercase tracking-wider block">MEMÓRIA RAM</span>
+                      <span className="text-white font-bold text-sm mt-1 block">{hwDiag.memoriaRAM?.totalGB} GB Total</span>
+                      <span className="text-[10px] text-slate-300 block">
+                        Usado: {hwDiag.memoriaRAM?.usadoGB} GB | Livre: {hwDiag.memoriaRAM?.livreGB} GB
+                      </span>
+                      {hwDiag.memoriaRAM?.modulos?.[0] && (
+                        <span className="text-[9px] text-emerald-300 block mt-1">
+                          Slot: {hwDiag.memoriaRAM.modulos[0].slot} @ {hwDiag.memoriaRAM.modulos[0].velocidadeMHz}MHz ({hwDiag.memoriaRAM.modulos[0].fabricante})
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="p-3 rounded-xl border border-slate-700 bg-slate-900/80">
+                      <span className="text-[9px] text-slate-400 uppercase tracking-wider block">ARMAZENAMENTO & SMART</span>
+                      <span className="text-cyan-300 font-bold text-xs mt-1 block">
+                        {hwDiag.armazenamento?.discosFisicos?.[0]?.modelo || 'Samsung NVMe SSD'}
+                      </span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] text-slate-300">
+                          Partição C: {hwDiag.armazenamento?.particaoC?.livreGB} GB Livres ({hwDiag.armazenamento?.particaoC?.percentualUso}% ocupado)
+                        </span>
+                        <span className="px-1.5 py-0.5 rounded bg-emerald-950 border border-emerald-500 text-emerald-300 text-[9px] font-bold">
+                          {hwDiag.armazenamento?.discosFisicos?.[0]?.saude || 'Saudável'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Windows Event Viewer Crash / Critical Logs */}
+                  <div className="p-3 rounded-xl border border-rose-500/30 bg-rose-950/20 space-y-2">
+                    <span className="text-[10px] text-rose-300 font-bold uppercase tracking-wider block">
+                      Auditoria Forense de Falhas do Windows (Event Viewer Level 1 & 2):
+                    </span>
+                    {hwDiag.logsEventViewer && hwDiag.logsEventViewer.length > 0 ? (
+                      <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                        {hwDiag.logsEventViewer.map((ev: any, idx: number) => (
+                          <div key={idx} className="p-2 rounded bg-slate-900/80 border border-slate-800 text-[10px]">
+                            <div className="flex justify-between text-rose-400 font-bold">
+                              <span>Origem: {ev.origem} (ID {ev.eventoId})</span>
+                              <span className="text-slate-400 font-normal">{ev.dataHora}</span>
+                            </div>
+                            <p className="text-slate-300 mt-0.5 text-[9px] truncate">{ev.mensagem}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-emerald-400">
+                        ✔ Nenhum evento crítico de kernel ou BSOD recente registrado no log do sistema.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Export & Portability Buttons */}
+                  <div className="pt-2 flex flex-col sm:flex-row gap-2">
+                    <button
+                      type="button"
+                      onClick={handleExportConfig}
+                      className="flex-1 py-2 rounded-xl border border-cyan-400 bg-cyan-950 hover:bg-cyan-900 text-cyan-200 text-xs font-bold transition-all shadow-[0_0_15px_rgba(0,240,255,0.3)] cursor-pointer"
+                    >
+                      💾 EXPORTAR CONFIGURAÇÃO COMPLETA (JSON)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        soundSynth.playTelemetryBeep();
+                        try {
+                          const res = await fetch('/api/system/diagnostics/report', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ symptom: 'Inspeção Completa de Rotina' })
+                          });
+                          const data = await res.json();
+                          if (data.sucesso) {
+                            alert('Laudo emitido com sucesso: ' + data.arquivo);
+                            const blob = new Blob([data.conteudoMarkdown], { type: 'text/markdown' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = data.arquivo;
+                            a.click();
+                          }
+                        } catch (err: any) {
+                          alert('Erro ao emitir laudo: ' + err.message);
+                        }
+                      }}
+                      className="flex-1 py-2 rounded-xl border border-amber-400 bg-amber-950 hover:bg-amber-900 text-amber-200 text-xs font-bold transition-all shadow-[0_0_15px_rgba(245,158,11,0.3)] cursor-pointer"
+                    >
+                      📄 EMITIR & BAIXAR LAUDO TÉCNICO
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
