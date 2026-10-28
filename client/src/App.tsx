@@ -19,6 +19,7 @@ import { SettingsModal, type SettingsTabType } from './components/SettingsModal'
 import { CommandPaletteModal } from './components/CommandPaletteModal';
 import { MemoryProfileModal } from './components/MemoryProfileModal';
 import { StudyModal } from './components/StudyModal';
+import { DownloadModal } from './components/DownloadModal';
 import { soundSynth } from './audio/synth';
 import { speechController } from './audio/speech';
 
@@ -46,6 +47,7 @@ export function App() {
   const [isCommandsOpen, setIsCommandsOpen] = useState<boolean>(false);
   const [isMemoryProfileOpen, setIsMemoryProfileOpen] = useState<boolean>(false);
   const [isStudyOpen, setIsStudyOpen] = useState<boolean>(false);
+  const [isDownloadOpen, setIsDownloadOpen] = useState<boolean>(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTabType>('jarvis_voz');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
@@ -353,6 +355,10 @@ export function App() {
           soundSynth.playTelemetryBeep();
           setIsStudyOpen(true);
         }}
+        onOpenDownload={() => {
+          soundSynth.playTelemetryBeep();
+          setIsDownloadOpen(true);
+        }}
       />
 
       {/* Cloud Sandbox Notice Banner (Shown ONLY if accessed on remote cloud and local agent is not bridged) */}
@@ -361,10 +367,16 @@ export function App() {
           <div className="flex items-center gap-2 mb-1 sm:mb-0">
             <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping shrink-0" />
             <span>
-              <strong>MODO CLOUD SANDBOX (INTEL XEON / VERCEL):</strong> Esta aba está visualizando a nuvem. Para controlar o seu computador real (Core i5, 16GB RAM) e executar ferramentas locais, inicie o app local no seu Desktop.
+              <strong>MODO CLOUD SANDBOX (INTEL XEON / VERCEL):</strong> Esta aba está visualizando a nuvem. Para controlar o seu computador real (Core i5, 16GB RAM) e executar ferramentas locais, inicie o app local no seu Desktop ou baixe no Pen Drive.
             </span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setIsDownloadOpen(true)}
+              className="px-3 py-0.5 rounded-lg bg-amber-900/90 border border-amber-400 text-amber-200 hover:text-white font-bold text-[11px] shadow-[0_0_10px_rgba(245,158,11,0.4)] transition-all cursor-pointer"
+            >
+              💾 BAIXAR PARA PEN DRIVE
+            </button>
             <button
               onClick={() => {
                 window.location.href = 'http://127.0.0.1:3000';
@@ -387,7 +399,7 @@ export function App() {
       <main className="relative flex-1 flex items-center justify-between px-3 sm:px-6 py-1 overflow-hidden min-h-0">
         {/* Left Widget Panel */}
         <div className="hidden lg:flex shrink-0">
-          <LeftPanel status={systemStatus} />
+          <LeftPanel status={systemStatus} onOpenDownload={() => setIsDownloadOpen(true)} />
         </div>
 
         {/* Central Stage: 3D Energy Orb & Active Focus Cards */}
@@ -500,6 +512,13 @@ export function App() {
       <StudyModal
         isOpen={isStudyOpen}
         onClose={() => setIsStudyOpen(false)}
+      />
+
+      {/* Central de Download Portátil (Pen Drive & Instalador) */}
+      <DownloadModal
+        isOpen={isDownloadOpen}
+        onClose={() => setIsDownloadOpen(false)}
+        status={systemStatus}
       />
     </div>
   );

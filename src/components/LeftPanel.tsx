@@ -1,12 +1,13 @@
 import React from 'react';
 import type { SystemStatus } from '../types';
-import { Cpu, Activity, ShieldCheck, Zap, Battery, BatteryCharging } from 'lucide-react';
+import { Cpu, Activity, ShieldCheck, Zap, Battery, BatteryCharging, Usb } from 'lucide-react';
 
 interface LeftPanelProps {
   status: SystemStatus | null;
+  onOpenDownload?: () => void;
 }
 
-export const LeftPanel: React.FC<LeftPanelProps> = ({ status }) => {
+export const LeftPanel: React.FC<LeftPanelProps> = ({ status, onOpenDownload }) => {
   const cpuPercent = status?.cpu.usagePercent ?? 24;
   const ramPercent = status?.ram.usagePercent ?? 65;
   const ramUsed = status?.ram.usedGB ?? 8.5;
@@ -54,6 +55,16 @@ export const LeftPanel: React.FC<LeftPanelProps> = ({ status }) => {
             </span>
           )}
         </div>
+
+        {status?.isCloudSandbox && onOpenDownload && (
+          <button
+            onClick={onOpenDownload}
+            className="w-full mb-2 py-1 px-2 rounded-lg border border-amber-400/80 bg-amber-950/80 hover:bg-amber-900 text-amber-200 text-[9px] font-mono font-bold flex items-center justify-center gap-1.5 shadow-[0_0_10px_rgba(245,158,11,0.3)] transition-all cursor-pointer animate-pulse"
+          >
+            <Usb className="w-3 h-3 text-amber-400" />
+            <span>BAIXAR PARA PEN DRIVE</span>
+          </button>
+        )}
 
         <div className="text-[10px] font-mono text-slate-300 truncate mb-1.5 font-semibold text-cyan-100" title={cpuModel}>
           {cpuModel}

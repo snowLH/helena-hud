@@ -1917,6 +1917,34 @@ app.post('/api/system/config/import', localSecurity.requireLocalAuth, (req, res)
   }
 });
 
+// =========================================================================
+// H.E.L.E.N.A. CENTRAL DE DOWNLOAD PORTÁTIL (PEN DRIVE & INSTALADOR)
+// =========================================================================
+app.get('/api/download/portable', (req, res) => {
+  const zipPathPublic = path.join(__dirname, 'public', 'downloads', 'helena-portatil.zip');
+  const zipPathDist = path.join(__dirname, 'dist', 'downloads', 'helena-portatil.zip');
+  const targetZip = fs.existsSync(zipPathDist) ? zipPathDist : zipPathPublic;
+
+  if (fs.existsSync(targetZip)) {
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', 'attachment; filename="helena-portatil.zip"');
+    return fs.createReadStream(targetZip).pipe(res);
+  }
+
+  // Fallback: Redireciona para o repositório GitHub caso ainda não tenha sido gerado
+  res.redirect('https://github.com/snowLH/helena-hud/archive/refs/heads/main.zip');
+});
+
+app.get('/api/download/launcher', (req, res) => {
+  const batPath = path.join(__dirname, 'HELENA_PENDRIVE.bat');
+  if (fs.existsSync(batPath)) {
+    res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('Content-Disposition', 'attachment; filename="HELENA_PENDRIVE.bat"');
+    return fs.createReadStream(batPath).pipe(res);
+  }
+  res.status(404).send('Iniciador não encontrado no servidor.');
+});
+
 // 3.4. GET & POST /api/helena/mcp (Model Context Protocol: Tools, Resources e Execução Padronizada)
 app.get('/api/helena/mcp/tools', (req, res) => {
   res.json({ tools: getMcpToolsCatalog() });

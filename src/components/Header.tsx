@@ -22,7 +22,8 @@ import {
   GraduationCap,
   Zap,
   Boxes,
-  Cpu
+  Cpu,
+  Usb
 } from 'lucide-react';
 import { soundSynth } from '../audio/synth';
 import { speechController } from '../audio/speech';
@@ -38,6 +39,7 @@ interface HeaderProps {
   onOpenCommands: () => void;
   onOpenMemoryProfile?: () => void;
   onOpenStudy?: () => void;
+  onOpenDownload?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -50,7 +52,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSettings,
   onOpenCommands,
   onOpenMemoryProfile,
-  onOpenStudy
+  onOpenStudy,
+  onOpenDownload
 }) => {
   const [timeStr, setTimeStr] = useState<string>('');
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
@@ -399,6 +402,22 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
               </button>
 
+              {onOpenDownload && (
+                <button
+                  onClick={() => {
+                    setToolsOpen(false);
+                    onOpenDownload();
+                  }}
+                  className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left text-xs font-mono text-cyan-200 hover:text-white hover:bg-cyan-950/70 border border-transparent hover:border-cyan-500/40 transition-all cursor-pointer"
+                >
+                  <Usb className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <div>
+                    <div className="font-semibold text-[11px]">Baixar para Pen Drive (.zip / .bat)</div>
+                    <div className="text-[9px] text-cyan-400/70">Execução portátil 100% local em qualquer PC</div>
+                  </div>
+                </button>
+              )}
+
               <button
                 onClick={() => {
                   setToolsOpen(false);
@@ -419,6 +438,24 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* 3. Right: Voice Pill + Controls + Clock */}
       <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        {onOpenDownload && (
+          <button
+            onClick={() => {
+              soundSynth.playTelemetryBeep();
+              onOpenDownload();
+            }}
+            title="Baixar H.E.L.E.N.A. Portátil para Pen Drive"
+            className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-lg border text-[10px] font-mono transition-all cursor-pointer ${
+              status?.isCloudSandbox
+                ? 'border-amber-400 bg-amber-950/80 hover:bg-amber-900 text-amber-200 shadow-[0_0_15px_rgba(245,158,11,0.4)] animate-pulse'
+                : 'border-cyan-500/50 bg-cyan-950/60 hover:bg-cyan-900/80 hover:border-cyan-300 text-cyan-200 shadow-[0_0_10px_rgba(0,240,255,0.25)]'
+            }`}
+          >
+            <Usb className={`w-3.5 h-3.5 ${status?.isCloudSandbox ? 'text-amber-400' : 'text-cyan-400'}`} />
+            <span className="font-semibold hidden sm:inline">PEN DRIVE</span>
+          </button>
+        )}
+
         {/* Active Voice Pill */}
         <button
           onClick={() => onOpenSettings('jarvis_voz')}

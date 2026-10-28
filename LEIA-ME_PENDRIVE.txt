@@ -1,0 +1,49 @@
+===============================================================================
+  H.E.L.E.N.A. — COPILOTO PESSOAL E TÉCNICO PORTÁTIL PARA PEN DRIVE
+  Heurística de Execução Local e Estruturação Neural Autônoma
+===============================================================================
+
+Este Pen Drive contém o ecossistema completo da H.E.L.E.N.A. configurado para
+execução 100% local, autônoma e portátil em qualquer computador com Windows 10 ou 11.
+
+-------------------------------------------------------------------------------
+COMO USAR EM QUALQUER COMPUTADOR (PASSO A PASSO)
+-------------------------------------------------------------------------------
+
+1. Conecte o Pen Drive na porta USB do computador.
+2. Abra a pasta do Pen Drive no Explorador de Arquivos do Windows.
+3. Dê um duplo clique no arquivo:
+   
+   👉 HELENA_PENDRIVE.bat   (ou Iniciar_HELENA.bat)
+
+4. A interface futurista da H.E.L.E.N.A. abrirá automaticamente em tela cheia!
+   - Se o computador já tiver o Node.js instalado, a inicialização leva 1 segundo.
+   - Se o computador for novo/virgem sem Node.js, o script baixará o executável
+     portátil automaticamente para a pasta do Pen Drive (sem precisar de direitos
+     de administrador).
+
+-------------------------------------------------------------------------------
+FUNCIONALIDADES REAIS NO COMPUTADOR HOST:
+-------------------------------------------------------------------------------
+✔ Diagnóstico Real de Hardware (CPU, RAM física, SSD SMART, versão da BIOS).
+✔ Leitura Forense de Erros do Windows Event Viewer (Nível 1 e 2 - Kernel / BSOD).
+✔ Diagnóstico Guiado de Aquecimento do Notebook, Cooler e Pasta Térmica.
+✔ Emissão e Download de Laudo Técnico Pericial em Markdown (.md).
+✔ Sequência Dourada de Reparo do Windows (DISM + SFC + Chkdsk).
+✔ Tuning Seguro de Registro (Win32PrioritySeparation com backup .reg automático).
+✔ Hub Multi-Provedores de IA (Google Gemini, OpenAI, Claude, Ollama ou Core Offline).
+✔ Modo de Estudos & Preparação para Provas com Pomodoro tático e Ondas Alfa.
+✔ Síntese de Voz Humana com Interrupção Barge-in ao falar.
+
+-------------------------------------------------------------------------------
+ACESSO VIA SMARTPHONE OU OUTROS APARELHOS NA MESMA REDE WI-FI:
+-------------------------------------------------------------------------------
+Com a H.E.L.E.N.A. rodando neste computador, você pode abrir o HUD no seu celular:
+Acesse no navegador do celular o IP exibido no terminal (ex: http://192.168.0.x:3000).
+
+-------------------------------------------------------------------------------
+SEGURANÇA E PRIVACIDADE:
+-------------------------------------------------------------------------------
+Nenhum dado pessoal, arquivo ou telemetria é enviado para servidores externos.
+A execução ocorre 100% no hardware do computador hospedeiro.
+===============================================================================
