@@ -78,26 +78,27 @@ echo.
 
 REM Opcao A: Microsoft Edge App Mode
 if exist "%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe" (
-    start "" "%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe" --app=http://localhost:3000 --start-fullscreen
+    start "" "%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe" --app=http://localhost:3000?mode=app --start-fullscreen
     goto sucesso
 )
 if exist "%ProgramFiles%\Microsoft\Edge\Application\msedge.exe" (
-    start "" "%ProgramFiles%\Microsoft\Edge\Application\msedge.exe" --app=http://localhost:3000 --start-fullscreen
+    start "" "%ProgramFiles%\Microsoft\Edge\Application\msedge.exe" --app=http://localhost:3000?mode=app --start-fullscreen
     goto sucesso
 )
 
 REM Opcao B: Google Chrome App Mode
 if exist "%ProgramFiles%\Google\Chrome\Application\chrome.exe" (
-    start "" "%ProgramFiles%\Google\Chrome\Application\chrome.exe" --app=http://localhost:3000 --start-fullscreen
+    start "" "%ProgramFiles%\Google\Chrome\Application\chrome.exe" --app=http://localhost:3000?mode=app --start-fullscreen
     goto sucesso
 )
 if exist "%LocalAppData%\Google\Chrome\Application\chrome.exe" (
-    start "" "%LocalAppData%\Google\Chrome\Application\chrome.exe" --app=http://localhost:3000 --start-fullscreen
+    start "" "%LocalAppData%\Google\Chrome\Application\chrome.exe" --app=http://localhost:3000?mode=app --start-fullscreen
     goto sucesso
 )
 
 REM Opcao C: Navegador Padrao
-start http://localhost:3000
+start http://localhost:3000?mode=app
+
 
 :sucesso
 echo ===============================================================================

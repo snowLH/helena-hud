@@ -20,6 +20,7 @@ import { CommandPaletteModal } from './components/CommandPaletteModal';
 import { MemoryProfileModal } from './components/MemoryProfileModal';
 import { StudyModal } from './components/StudyModal';
 import { DownloadModal } from './components/DownloadModal';
+import { DownloadLandingPage } from './components/DownloadLandingPage';
 import { soundSynth } from './audio/synth';
 import { speechController } from './audio/speech';
 
@@ -55,7 +56,17 @@ export function App() {
   const [localApiBase, setLocalApiBase] = useState<string>('');
 
   const isLocalHost = typeof window !== 'undefined' &&
-    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    (window.location.hostname === 'localhost' || 
+     window.location.hostname === '127.0.0.1' || 
+     window.location.hostname.endsWith('.local'));
+
+  // Detect explicit mode in query parameters: ?mode=app or ?mode=download
+  const [urlParams] = useState(() => typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null);
+  const forceAppMode = urlParams?.get('mode') === 'app' || urlParams?.get('app') === 'true';
+  const forceDownloadMode = urlParams?.get('mode') === 'download';
+
+  // Desktop App Mode is active ONLY if accessed on localhost or explicit app mode, unless forced download
+  const isDesktopApp = (isLocalHost || forceAppMode) && !forceDownloadMode;
 
   const getEndpoint = useCallback((path: string) => {
     if (isLocalHost) return path;
@@ -328,6 +339,19 @@ export function App() {
       setIsProcessing(false);
     }
   };
+
+  // If not in desktop app mode, render the official download portal!
+  if (!isDesktopApp) {
+    return (
+      <DownloadLandingPage
+        onOpenDemoApp={() => {
+          const url = new URL(window.location.href);
+          url.searchParams.set('mode', 'app');
+          window.location.href = url.toString();
+        }}
+      />
+    );
+  }
 
   return (
     <div className="relative w-screen h-screen overflow-hidden hud-grid-background text-slate-100 flex flex-col justify-between scanlines">

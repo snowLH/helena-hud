@@ -456,6 +456,21 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         )}
 
+        {/* Portal de Download */}
+        <button
+          onClick={() => {
+            soundSynth.playTelemetryBeep();
+            const url = new URL(window.location.href);
+            url.searchParams.set('mode', 'download');
+            window.location.href = url.toString();
+          }}
+          title="Abrir Página Oficial de Download da H.E.L.E.N.A."
+          className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-lg border border-cyan-500/40 bg-slate-900/80 hover:bg-cyan-950/60 hover:border-cyan-300 text-[10px] text-cyan-200 font-mono transition-all cursor-pointer shadow-[0_0_10px_rgba(0,240,255,0.2)]"
+        >
+          <Globe className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+          <span className="font-semibold hidden sm:inline">PORTAL</span>
+        </button>
+
         {/* Active Voice Pill */}
         <button
           onClick={() => onOpenSettings('jarvis_voz')}

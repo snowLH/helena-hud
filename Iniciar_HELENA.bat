@@ -74,35 +74,35 @@ if exist "%ProgramFiles%\Microsoft\Edge\Application\msedge.exe" (
 
 REM Tentativa 2: Google Chrome em modo App tela cheia
 if exist "%ProgramFiles%\Google\Chrome\Application\chrome.exe" (
-    start "" "%ProgramFiles%\Google\Chrome\Application\chrome.exe" --app=http://127.0.0.1:3000 --start-fullscreen
+    start "" "%ProgramFiles%\Google\Chrome\Application\chrome.exe" --app=http://127.0.0.1:3000?mode=app --start-fullscreen
     goto sucesso
 )
 if exist "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe" (
-    start "" "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe" --app=http://127.0.0.1:3000 --start-fullscreen
+    start "" "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe" --app=http://127.0.0.1:3000?mode=app --start-fullscreen
     goto sucesso
 )
 if exist "%LocalAppData%\Google\Chrome\Application\chrome.exe" (
-    start "" "%LocalAppData%\Google\Chrome\Application\chrome.exe" --app=http://localhost:3000 --start-fullscreen
+    start "" "%LocalAppData%\Google\Chrome\Application\chrome.exe" --app=http://localhost:3000?mode=app --start-fullscreen
     goto sucesso
 )
 
 REM Tentativa 2: Microsoft Edge em modo App tela cheia
 where msedge >nul 2>nul
 if %errorlevel% equ 0 (
-    start "" msedge --app=http://localhost:3000 --start-fullscreen
+    start "" msedge --app=http://localhost:3000?mode=app --start-fullscreen
     goto sucesso
 )
 if exist "%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe" (
-    start "" "%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe" --app=http://localhost:3000 --start-fullscreen
+    start "" "%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe" --app=http://localhost:3000?mode=app --start-fullscreen
     goto sucesso
 )
 if exist "%ProgramFiles%\Microsoft\Edge\Application\msedge.exe" (
-    start "" "%ProgramFiles%\Microsoft\Edge\Application\msedge.exe" --app=http://localhost:3000 --start-fullscreen
+    start "" "%ProgramFiles%\Microsoft\Edge\Application\msedge.exe" --app=http://localhost:3000?mode=app --start-fullscreen
     goto sucesso
 )
 
 REM Tentativa 3: Navegador padrao
-start http://localhost:3000
+start http://localhost:3000?mode=app
 
 :sucesso
 echo ===============================================================================
