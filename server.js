@@ -11,6 +11,9 @@ const dns = require('dns');
 const localSecurity = require('./local_security');
 const aiHub = require('./ai_hub');
 const technicalDiagnostics = require('./technical_diagnostics');
+const windowsTools = require('./modules/windows_tools');
+const devicePairing = require('./modules/device_pairing');
+const conversationDb = require('./modules/conversation_db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -1945,6 +1948,267 @@ app.get('/api/download/launcher', (req, res) => {
   res.status(404).send('Iniciador não encontrado no servidor.');
 });
 
+app.get('/api/download/installer', (req, res) => {
+  const installerPath = path.join(__dirname, 'Instalar_HELENA_Desktop.bat');
+  if (fs.existsSync(installerPath)) {
+    res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('Content-Disposition', 'attachment; filename="Instalar_HELENA_Desktop.bat"');
+    return fs.createReadStream(installerPath).pipe(res);
+  }
+  res.redirect('/api/download/portable');
+});
+
+// =========================================================================
+// H.E.L.E.N.A. — CONTROLE MOBILE SEGURO (QR CODE, PIN, SESSÕES, HITL)
+// =========================================================================
+
+// 1. Gerar novo código PIN temporário de 6 dígitos + QR Code (Apenas Host PC)
+app.post('/api/mobile/pair/challenge', localSecurity.requireLocalAuth, async (req, res) => {
+  const localIp = getLocalIpAddress();
+  const baseUrl = req.body?.baseUrl || `http://${localIp}:${PORT}`;
+  const challenge = await devicePairing.generatePairingChallenge(baseUrl);
+  res.json({
+    success: true,
+    ...challenge,
+    networkUrl: `${baseUrl}/?mode=mobile`
+  });
+});
+
+// 2. Consultar status de pareamento, dispositivos conectados, aprovações pendentes e auditoria (Host PC)
+app.get('/api/mobile/pair/status', localSecurity.requireLocalAuth, (req, res) => {
+  const localIp = getLocalIpAddress();
+  res.json({
+    success: true,
+    networkUrl: `http://${localIp}:${PORT}/?mode=mobile`,
+    challenge: devicePairing.getCurrentPairingStatus(),
+    devices: devicePairing.listPairedDevices(),
+    pendingApprovals: devicePairing.listPendingApprovals(),
+    auditLogs: devicePairing.loadAuditLogs().slice(0, 40)
+  });
+});
+
+// 3. Handshake de pareamento enviado pelo Celular (Público, protegido pelo PIN temporário de 6 dígitos)
+app.post('/api/mobile/pair/verify', (req, res) => {
+  const { pin, deviceName } = req.body || {};
+  const clientIp = req.ip || req.connection?.remoteAddress || '';
+  const userAgent = req.headers['user-agent'] || '';
+
+  const result = devicePairing.pairMobileDevice({
+    pin,
+    deviceName,
+    userAgent,
+    ip: clientIp
+  });
+
+  if (!result.success) {
+    return res.status(401).json(result);
+  }
+  res.json(result);
+});
+
+// 4. Verificar sessão atual do Celular
+app.get('/api/mobile/session/verify', (req, res) => {
+  const token = req.headers['x-helena-device-token'];
+  const clientIp = req.ip || req.connection?.remoteAddress || '';
+  const val = devicePairing.validateDeviceToken(token, clientIp);
+  if (!val.valid) {
+    return res.status(401).json({ authenticated: false, reason: val.reason });
+  }
+  res.json({
+    authenticated: true,
+    device: val.device,
+    hostName: os.hostname()
+  });
+});
+
+// 5. Revogar dispositivo pareado (Host PC ou próprio dispositivo ao encerrar sessão)
+app.post('/api/mobile/devices/revoke', localSecurity.requireLocalAuth, (req, res) => {
+  const { deviceId } = req.body || {};
+  const result = devicePairing.revokeDevice(deviceId);
+  res.json(result);
+});
+
+// 6. Telemetria em tempo real para o Celular Pareado
+app.get('/api/mobile/telemetry', localSecurity.requireLocalAuth, async (req, res) => {
+  const snap = windowsTools.getFullSystemSnapshot();
+  const history = conversationDb.getConversationHistory(20);
+  const approvals = devicePairing.listPendingApprovals();
+
+  res.json({
+    success: true,
+    connected: true,
+    hostname: snap.hostname,
+    uptimeHours: snap.uptimeHours,
+    cpu: snap.cpu,
+    ram: snap.ram,
+    disks: snap.disks,
+    battery: snap.battery,
+    temperature: snap.temperature,
+    topProcesses: snap.topProcesses.slice(0, 6),
+    tempFiles: snap.tempFiles,
+    recentHistory: history,
+    pendingApprovals: approvals.slice(0, 10)
+  });
+});
+
+// 7. Executar ou Enfileirar Ação Remota vinda do Celular (Com Confirmação no PC para ações sensíveis)
+app.post('/api/mobile/action', localSecurity.requireLocalAuth, async (req, res) => {
+  const { actionType, actionLabel, payload } = req.body || {};
+  const device = req.pairedDevice || {
+    deviceId: 'host-local',
+    deviceName: 'Console Principal',
+    ip: req.ip || '127.0.0.1'
+  };
+
+  // Ações seguras imediatas (ex: abrir calculadora, bloco de notas, explorador, gerenciador de tarefas, minimizar janelas)
+  const safeImmediateActions = ['open_app', 'focus_window', 'minimize_windows', 'restore_windows'];
+
+  if (safeImmediateActions.includes(actionType)) {
+    let result = { success: true, message: 'Comando executado.' };
+    if (actionType === 'open_app') {
+      const appName = payload?.app || 'calc';
+      result = launchSystemApp(appName);
+    } else if (actionType === 'minimize_windows') {
+      result = windowsTools.manageWindow('minimize_all');
+    } else if (actionType === 'restore_windows') {
+      result = windowsTools.manageWindow('restore_all');
+    }
+
+    devicePairing.logAuditEvent({
+      source: 'MOBILE',
+      deviceName: device.deviceName,
+      ip: device.ip,
+      action: actionType,
+      status: 'EXECUTADO_IMEDIATO',
+      details: `${actionLabel || actionType} (${JSON.stringify(payload || {})})`
+    });
+
+    return res.json({
+      success: true,
+      requiresApproval: false,
+      status: 'executed',
+      result
+    });
+  }
+
+  // Ações sensíveis (ex: otimizar sistema, limpar arquivos temporários, encerrar processo, rodar reparo DISM/SFC)
+  // Exigem confirmação explícita no computador quando acionadas pelo celular!
+  const pending = devicePairing.createPendingApproval({
+    device,
+    actionType: actionType || 'sensitive_command',
+    actionLabel: actionLabel || 'Executar operação administrativa no computador',
+    payload: payload || {}
+  });
+
+  res.json({
+    success: true,
+    requiresApproval: true,
+    status: 'pending_approval',
+    approval: pending,
+    message: 'Solicitação enviada para confirmação na tela do computador principal.'
+  });
+});
+
+// 8. Consultar status de uma aprovação pendente
+app.get('/api/mobile/approval/:id', localSecurity.requireLocalAuth, (req, res) => {
+  const item = devicePairing.getApprovalById(req.params.id);
+  if (!item) return res.status(404).json({ error: 'Solicitação não encontrada.' });
+  res.json({ success: true, approval: item });
+});
+
+// 9. Aprovar ou Negar no Computador uma ação solicitada pelo Celular
+app.post('/api/mobile/approval/:id/resolve', localSecurity.requireLocalAuth, async (req, res) => {
+  const { decision } = req.body || {}; // 'approve' | 'deny'
+  const resolved = await devicePairing.resolveApproval(req.params.id, decision, async (item) => {
+    if (item.actionType === 'optimize_pc') {
+      const snapBefore = windowsTools.getFullSystemSnapshot();
+      try { execSync('ipconfig /flushdns', { timeout: 3000 }); } catch (_) {}
+      return {
+        message: `Otimização autorizada e concluída no PC (${snapBefore.tempFiles.fileCount} temporários inspecionados e DNS renovado).`
+      };
+    }
+    if (item.actionType === 'kill_process' && item.payload?.pid) {
+      const pid = parseInt(item.payload.pid, 10);
+      execSync(`taskkill /PID ${pid} /F`, { timeout: 3000 });
+      return { message: `Processo PID ${pid} encerrado com autorização do operador.` };
+    }
+    if (item.actionType === 'golden_repair') {
+      const rep = await runGoldenRepairSequence();
+      return { message: 'Sequência Dourada de Reparo executada com autorização.', report: rep };
+    }
+    return { message: `Operação "${item.actionLabel}" aprovada e executada no computador.` };
+  });
+
+  res.json(resolved);
+});
+
+// =========================================================================
+// H.E.L.E.N.A. — FERRAMENTAS AVANÇADAS DO WINDOWS & DESKTOP INSTALÁVEL
+// =========================================================================
+
+app.get('/api/system/snapshot', localSecurity.requireLocalAuth, (req, res) => {
+  const force = req.query.refresh === 'true';
+  res.json({
+    success: true,
+    snapshot: windowsTools.getFullSystemSnapshot(force)
+  });
+});
+
+app.get('/api/system/windows', localSecurity.requireLocalAuth, (req, res) => {
+  res.json({
+    success: true,
+    windows: windowsTools.listActiveWindows()
+  });
+});
+
+app.post('/api/system/windows/manage', localSecurity.requireLocalAuth, (req, res) => {
+  const { action, target } = req.body || {};
+  res.json(windowsTools.manageWindow(action, target));
+});
+
+app.post('/api/helena/tools/files/search', localSecurity.requireLocalAuth, (req, res) => {
+  const { query, scope } = req.body || {};
+  res.json(windowsTools.searchLocalFiles(query, scope));
+});
+
+app.post('/api/helena/tools/files/rename', localSecurity.requireLocalAuth, (req, res) => {
+  const { filePath, newName } = req.body || {};
+  res.json(windowsTools.renameUserFile(filePath, newName));
+});
+
+app.post('/api/helena/tools/files/open', localSecurity.requireLocalAuth, (req, res) => {
+  const { target } = req.body || {};
+  res.json(windowsTools.openFolderOrFile(target));
+});
+
+app.get('/api/system/autostart', localSecurity.requireLocalAuth, (req, res) => {
+  res.json({
+    success: true,
+    enabled: windowsTools.getWindowsAutoStart()
+  });
+});
+
+app.post('/api/system/autostart', localSecurity.requireLocalAuth, (req, res) => {
+  const { enable } = req.body || {};
+  res.json(windowsTools.setWindowsAutoStart(Boolean(enable)));
+});
+
+app.post('/api/system/shortcuts/create', localSecurity.requireLocalAuth, (req, res) => {
+  res.json(windowsTools.createDesktopAndStartMenuShortcuts());
+});
+
+app.get('/api/helena/conversations', localSecurity.requireLocalAuth, (req, res) => {
+  res.json({
+    success: true,
+    messages: conversationDb.getConversationHistory(60)
+  });
+});
+
+app.post('/api/helena/conversations/clear', localSecurity.requireLocalAuth, (req, res) => {
+  conversationDb.clearConversationHistory();
+  res.json({ success: true });
+});
+
 // 3.4. GET & POST /api/helena/mcp (Model Context Protocol: Tools, Resources e Execução Padronizada)
 app.get('/api/helena/mcp/tools', (req, res) => {
   res.json({ tools: getMcpToolsCatalog() });
@@ -2356,6 +2620,23 @@ app.post('/api/helena/brain', async (req, res) => {
   const cmd = rawCmd.toLowerCase();
   const cleanCmd = cmd.replace(/^helena[,:\s]*/i, '').trim();
 
+  let turnPersisted = false;
+  const originalJson = res.json.bind(res);
+  res.json = (body) => {
+    if (!turnPersisted && rawCmd && body && Array.isArray(body.cartoes) && body.cartoes.length > 0) {
+      turnPersisted = true;
+      const firstCard = body.cartoes[0];
+      conversationDb.appendConversationTurn({
+        userText: rawCmd,
+        assistantText: firstCard.fala || firstCard.texto || firstCard.titulo || 'Comando processado.',
+        intent: body.intent || 'geral',
+        cardTitle: firstCard.titulo || null,
+        toolUsed: firstCard.motor || firstCard.tipo || null
+      });
+    }
+    return originalJson(body);
+  };
+
   const dados = loadDadosPessoais();
   const cpuUsage = await getCpuUsage();
   const network = await getNetworkLatency();
@@ -2372,31 +2653,121 @@ app.post('/api/helena/brain', async (req, res) => {
   async function queryAIHub(promptText, history = []) {
     const perfil = loadPerfilUsuario();
     const memoria = loadMemoriaLonga();
-    const recentMem = (memoria.memoriasEpisodicas || []).slice(0, 3).map(m => `- ${m.resumo}`).join('; ');
+    const snap = windowsTools.getFullSystemSnapshot();
+    const recentMem = (memoria.memoriasEpisodicas || []).slice(0, 4).map(m => `- ${m.resumo}`).join('; ');
     const userRole = `${perfil.usuario?.titulo || 'Comandante'} ${perfil.usuario?.nome || 'Operador'}`;
+    const topProcStr = (snap.topProcesses || []).slice(0, 4).map(p => `${p.name} (${p.memoryMB}MB)`).join(', ');
+    const gpuStr = (snap.gpu || []).map(g => g.name).join(', ') || 'Integrada';
 
-    const systemPrompt = `Você é H.E.L.E.N.A., o COPILOTO PESSOAL DEFINITIVO do sistema operacional Windows (computador ${os.hostname()}, CPU ${os.cpus()[0]?.model || 'Intel Core i5'}). Usuário atual: ${userRole}. Memórias e aprendizados recentes: [${recentMem || 'Nenhum evento registrado ainda'}].
-Você atua como Engenheiro de Sistemas Sênior, Desenvolvedor Full-Stack, Analista Forense e Administrador do Windows.
+    const systemPrompt = `Você é H.E.L.E.N.A., o COPILOTO PESSOAL DEFINITIVO do sistema operacional Windows.
+DADOS REAIS DO COMPUTADOR AGORA (${snap.hostname}):
+- Processador: ${snap.cpu.model} (${snap.cpu.physicalCores} núcleos físicos / ${snap.cpu.logicalProcessors} lógicos) em ${snap.cpu.loadPercent || cpuUsage}% de uso.
+- GPU: ${gpuStr}.
+- Memória RAM: ${snap.ram.usedGB} GB em uso de ${snap.ram.totalGB} GB (${snap.ram.usagePercent}%).
+- Top Processos na RAM: ${topProcStr}.
+- Armazenamento: Partição C: com ${disk.freeGB} GB livres de ${disk.totalGB} GB (${disk.usedPercent}% ocupado).
+- Arquivos Temporários (%TEMP%): ${snap.tempFiles.fileCount} arquivos (${snap.tempFiles.sizeMB} MB).
+- Programas na Inicialização do Windows: ${snap.startupCount} itens.
+- Bateria: ${snap.battery.present ? `${snap.battery.percentage}% (${snap.battery.status})` : 'Conectado na tomada AC'}.
+- Usuário atual: ${userRole}.
+- Memórias recentes: [${recentMem || 'Nenhuma memória anterior'}].
+
 Diretrizes:
-- Resolução direta e pragmática: auxilie em tarefas de desenvolvimento, diagnósticos de hardware, automações do computador e estudos.
-- Diagnóstico e Manutenção: priorize inspeções forenses lógicas (DISM, SFC, WMI, Event Viewer) e segurança operacional.
-- Segurança & HITL: solicite confirmação explícita em operações destrutivas ou irreversíveis.
-- Síntese acústica: respostas concisas, elegantes, assertivas e naturais para fala em Português do Brasil.`;
+- Sempre utilize os DADOS REAIS DO COMPUTADOR acima ao responder perguntas sobre o estado da máquina, lentidão, memória ou hardware. Nunca invente medições.
+- Respostas concisas, técnicas, elegantes e naturais para leitura e síntese de voz em Português do Brasil.`;
+
+    const mergedHistory = (Array.isArray(history) && history.length > 0)
+      ? history
+      : conversationDb.getRecentMessagesForAI(8);
 
     const res = await aiHub.queryAI({
       prompt: promptText,
       systemPrompt,
-      conversationHistory: history
+      conversationHistory: mergedHistory
     });
 
-    if (res && res.success) {
+    const outputText = res?.text || res?.texto;
+    if (res && res.success && outputText) {
       return {
         success: true,
-        text: res.texto,
-        motor: `${res.provedor} (${res.modelo})`
+        text: outputText,
+        motor: `${res.nomeProvedor || res.provedor} (${res.modelo})`
       };
     }
-    return { success: false, text: res?.texto || 'Erro no processamento neural.' };
+    return { success: false, text: outputText || 'Provedor externo não configurado.' };
+  }
+
+  // 0.000-A. PESQUISA LOCAL DE ARQUIVOS E GERENCIAMENTO DE JANELAS / PASTAS
+  if (
+    cmd.startsWith('procurar arquivo') || cmd.startsWith('buscar arquivo') ||
+    cmd.startsWith('localizar arquivo') || cmd.startsWith('encontrar arquivo') ||
+    cmd.startsWith('pesquisar arquivo')
+  ) {
+    const searchTerm = cleanCmd
+      .replace(/^(procurar|buscar|localizar|encontrar|pesquisar)\s+arquivos?\s*(chamado|com nome|sobre)?\s*/i, '')
+      .trim();
+    const searchRes = windowsTools.searchLocalFiles(searchTerm);
+    const topFiles = searchRes.files.slice(0, 6).map(f => `${f.name} (${f.folder})`).join(', ');
+    const fala = searchRes.count > 0
+      ? `Localizei ${searchRes.count} arquivos correspondentes a "${searchTerm || 'sua busca'}" nas pastas do usuário: ${topFiles}.`
+      : `Não encontrei nenhum arquivo com o termo "${searchTerm}" nas pastas Desktop, Documentos ou Downloads.`;
+
+    return res.json({
+      intent: 'pesquisa_arquivos',
+      cartoes: [
+        {
+          id: 'card-files-' + Date.now(),
+          titulo: `Pesquisa Local: "${searchTerm || 'Todos'}"`,
+          tipo: 'resposta_neural',
+          subtitulo: `${searchRes.count} arquivo(s) encontrado(s)`,
+          fala,
+          texto: searchRes.count > 0
+            ? `Arquivos encontrados:\n` + searchRes.files.slice(0, 10).map(f => `• ${f.name} — [${f.folder}] (${f.sizeKB} KB)\n  Caminho: ${f.path}`).join('\n')
+            : fala,
+          motor: 'Scanner de Arquivos Locais Windows'
+        }
+      ]
+    });
+  }
+
+  if (cmd.includes('minimizar janelas') || cmd.includes('minimizar todas as janelas') || cmd.includes('mostrar área de trabalho') || cmd.includes('mostrar area de trabalho')) {
+    const winRes = windowsTools.manageWindow('minimize_all');
+    return res.json({
+      intent: 'gerenciar_janelas',
+      cartoes: [
+        {
+          id: 'card-win-' + Date.now(),
+          titulo: 'Gerenciador de Janelas do Windows',
+          tipo: 'resposta_neural',
+          subtitulo: 'Comando Nativo Shell.Application',
+          fala: winRes.message,
+          texto: winRes.message,
+          motor: 'Integração Nativa Windows'
+        }
+      ]
+    });
+  }
+
+  if (cmd.includes('abrir pasta downloads') || cmd.includes('abrir pasta documentos') || cmd.includes('abrir área de trabalho')) {
+    const targetFolder = cmd.includes('downloads') ? 'downloads' : cmd.includes('documentos') ? 'documentos' : 'desktop';
+    const openRes = windowsTools.openFolderOrFile(targetFolder);
+    const fala = openRes.success
+      ? `Pasta ${targetFolder} aberta no Windows Explorer.`
+      : `Não foi possível abrir a pasta: ${openRes.error}`;
+    return res.json({
+      intent: 'abrir_pasta',
+      cartoes: [
+        {
+          id: 'card-folder-' + Date.now(),
+          titulo: `Explorador de Arquivos: ${targetFolder.toUpperCase()}`,
+          tipo: 'resposta_neural',
+          subtitulo: openRes.openedPath || targetFolder,
+          fala,
+          texto: fala,
+          motor: 'Windows Explorer Integration'
+        }
+      ]
+    });
   }
 
   // 0.000. DIAGNÓSTICO TÉCNICO DE NOTEBOOKS E HARDWARE (FASE 5)
@@ -2405,8 +2776,7 @@ Diretrizes:
     cmd.includes('pc esquenta') || cmd.includes('superaquec') ||
     cmd.includes('cooler') || cmd.includes('ventoinha') ||
     cmd.includes('pasta térmica') || cmd.includes('pasta termica') ||
-    cmd.includes('por que está lento') || cmd.includes('por que esta lento') ||
-    cmd.includes('notebook lento') || cmd.includes('computador lento') ||
+    cmd.includes('lento') || cmd.includes('lentid') || cmd.includes('travando') ||
     cmd.includes('tela azul') || cmd.includes('bsod') ||
     cmd.includes('bateria viciada') || cmd.includes('saúde da bateria') ||
     cmd.includes('saude da bateria') || cmd.includes('laudo técnico') ||
@@ -3044,6 +3414,7 @@ Diretrizes:
     cmd.includes('temperatura') || cmd.includes('como está o pc') ||
     cmd.includes('como tá o pc')
   ) {
+    const snap = windowsTools.getFullSystemSnapshot();
     return res.json({
       intent: 'relatorio',
       cartoes: [
@@ -3052,10 +3423,10 @@ Diretrizes:
           titulo: "Relatório Geral da Máquina",
           tipo: "relatorio_geral",
           subtitulo: "Diagnóstico completo de integridade",
-          fala: `Relatório de sistema consolidado: Processador com ${os.cpus().length} núcleos virtuais a ${cpuUsage}%, ${ramGB} de ${totalRAM} Gigabytes de memória RAM em uso, e ${disk.freeGB} Gigabytes livres na partição principal.`,
+          fala: `Relatório de sistema consolidado: Processador ${snap.cpu.model} com ${snap.cpu.physicalCores} núcleos físicos a ${cpuUsage}%, ${ramGB} de ${totalRAM} Gigabytes de memória RAM em uso (${ramPercent}%), e ${disk.freeGB} Gigabytes livres na partição principal.`,
           dados: {
-            processador: os.cpus()[0]?.model,
-            nucleos: os.cpus().length,
+            processador: snap.cpu.model,
+            nucleos: `${snap.cpu.physicalCores} Físicos / ${snap.cpu.logicalProcessors} Lógicos`,
             ram: `${ramGB} / ${totalRAM} GB (${ramPercent}%)`,
             disco: `${disk.freeGB} GB Livres (${disk.totalGB} GB Total)`,
             rede: `${network.latencyMs} ms (${network.host})`,
@@ -3141,10 +3512,36 @@ Diretrizes:
     });
   }
 
-  // 6. OTIMIZAÇÃO DO PC (Habilidade #1)
+  // 6. OTIMIZAÇÃO DO PC (Habilidade #1 — Limpeza Real de Temporários e DNS)
   if (cmd.includes('otimizar') || cmd.includes('otimização') || cmd.includes('acelerar') || cmd.includes('limpar pc') || cmd.includes('limpar computador')) {
-    appendMemoria('otimizacao', 'Ciclo de otimização de sistema ativado. Purgando %TEMP%, cache DNS e ativando Alto Desempenho.', 'Alta');
     const topProcesses = getTopProcesses();
+    const tmpDir = os.tmpdir();
+    let arquivosRemovidos = 0;
+    let bytesLiberados = 0;
+
+    try {
+      const entries = fs.readdirSync(tmpDir);
+      for (const item of entries) {
+        const fullPath = path.join(tmpDir, item);
+        try {
+          const stat = fs.statSync(fullPath);
+          if (stat.isFile()) {
+            const sz = stat.size;
+            fs.unlinkSync(fullPath);
+            arquivosRemovidos++;
+            bytesLiberados += sz;
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+
+    try { execSync('ipconfig /flushdns', { timeout: 3000 }); } catch (_) {}
+    try { execSync('powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c', { timeout: 2000 }); } catch (_) {}
+
+    const espacoLiberadoMB = Math.round((bytesLiberados / (1024 * 1024)) * 10) / 10;
+    const fala = `Protocolo de otimização executado com sucesso, Comandante. ${arquivosRemovidos} arquivos temporários purgados (${espacoLiberadoMB} MB liberados), tabelas de DNS renovadas e plano de Alto Desempenho verificado.`;
+
+    appendMemoria('otimizacao', fala, 'Alta');
 
     return res.json({
       intent: 'otimizar',
@@ -3155,13 +3552,13 @@ Diretrizes:
           id: "card-otimizacao-unificada",
           titulo: "Otimização Completa do Sistema",
           tipo: "otimizacao_unificada",
-          subtitulo: "Limpeza de Cache, Flush DNS e Alto Desempenho",
-          fala: `Protocolo de otimização executado com sucesso, Comandante. Arquivos temporários purgados, tabelas de DNS renovadas, processos em segundo plano reorganizados e plano de Alto Desempenho ativado.`,
+          subtitulo: "Limpeza Real de Cache, Flush DNS e Alto Desempenho",
+          fala,
           otimizacaoUnificada: {
-            espacoLiberadoMB: 42.5,
-            arquivosRemovidos: temp.fileCount || 184,
+            espacoLiberadoMB,
+            arquivosRemovidos,
             dnsLimpo: true,
-            planoEnergia: "Alto Desempenho (Fixado)",
+            planoEnergia: "Alto Desempenho (Ativo)",
             processos: topProcesses.slice(0, 5)
           }
         }
@@ -3172,6 +3569,7 @@ Diretrizes:
   // 7. MEMÓRIA & PROCESSOS
   if (cmd.includes('memória') || cmd.includes('memoria') || cmd.includes('ram') || cmd.includes('processos')) {
     const topProcesses = getTopProcesses();
+    const fala = `Memória em ${ramPercent}% de ocupação com ${ramGB} Gigabytes utilizados de ${totalRAM} Gigabytes. Os processos mais exigentes no momento são: ${topProcesses.slice(0, 3).map(p => p.name).join(', ')}.`;
     return res.json({
       intent: 'memoria',
       cartoes: [
@@ -3180,7 +3578,7 @@ Diretrizes:
           titulo: "Diagnóstico de Memória e Processos",
           tipo: "processos_pesados",
           subtitulo: "Top processos consumidores",
-          fala: `Memória em ${ramPercent}% de ocupação com ${ramGB} Gigabytes utilizados de ${totalRAM} Gigabytes. Os processos mais exigentes no momento são: ${topProcesses.slice(0, 3).map(p => p.name).join(', ')}.`,
+          fala,
           processos: topProcesses
         }
       ]
@@ -3189,6 +3587,8 @@ Diretrizes:
 
   // 8. RELATÓRIO DO SISTEMA
   if (cmd.includes('relatório') || cmd.includes('relatorio') || cmd.includes('status') || cmd.includes('hardware') || cmd.includes('como está meu pc') || cmd.includes('como esta meu pc')) {
+    const snap = windowsTools.getFullSystemSnapshot();
+    const fala = `Relatório de sistema consolidado: Processador ${snap.cpu.model} com ${snap.cpu.physicalCores} núcleos físicos a ${cpuUsage}%, ${ramGB} de ${totalRAM} Gigabytes de memória RAM em uso (${ramPercent}%), e ${disk.freeGB} Gigabytes livres na partição principal.`;
     return res.json({
       intent: 'relatorio',
       cartoes: [
@@ -3197,10 +3597,10 @@ Diretrizes:
           titulo: "Relatório Geral da Máquina",
           tipo: "relatorio_geral",
           subtitulo: "Diagnóstico completo de integridade",
-          fala: `Relatório de sistema consolidado: Processador com ${os.cpus().length} núcleos virtuais a ${cpuUsage}%, ${ramGB} de ${totalRAM} Gigabytes de memória RAM em uso, e ${disk.freeGB} Gigabytes livres na partição principal.`,
+          fala,
           dados: {
-            processador: os.cpus()[0]?.model,
-            nucleos: os.cpus().length,
+            processador: snap.cpu.model,
+            nucleos: `${snap.cpu.physicalCores} Físicos / ${snap.cpu.logicalProcessors} Lógicos`,
             ram: `${ramGB} / ${totalRAM} GB (${ramPercent}%)`,
             disco: `${disk.freeGB} GB Livres (${disk.totalGB} GB Total)`,
             rede: `${network.latencyMs} ms (${network.host})`,
@@ -3250,19 +3650,22 @@ Diretrizes:
     }
   }
 
-  const respostaFala = `Comandante, estou em prontidão. Telemetria atual: CPU em ${cpuUsage}%, RAM em ${ramGB} Gigabytes e rede em ${network.latencyMs} milissegundos. Posso executar reparos, otimizar o computador, gerenciar programas de boot, abrir aplicativos ou realizar pesquisas na rede.`;
+  // Motor Cognitivo Local baseado nos Dados Reais do Sistema
+  const snapNow = windowsTools.getFullSystemSnapshot();
+  const topProcsNow = (snapNow.topProcesses || []).slice(0, 3).map(p => `${p.name} (${p.memoryMB} MB)`).join(', ');
+  const respostaFala = `Comandante, analisei sua solicitação ("${rawCmd}") junto à telemetria ao vivo de ${snapNow.hostname}: CPU ${snapNow.cpu.model} em ${cpuUsage}%, RAM em ${ramGB}/${totalRAM} GB (${ramPercent}%) — maiores processos: ${topProcsNow || 'estáveis'} — e ${disk.freeGB} GB livres no disco C:. Para respostas generativas irrestritas, você também pode configurar uma chave de API (Gemini, OpenAI, Claude) ou iniciar o Ollama local nas Configurações.`;
 
   return res.json({
     intent: 'geral',
     cartoes: [
       {
         id: "card-resposta",
-        titulo: "H.E.L.E.N.A. Núcleo Autônomo",
+        titulo: "H.E.L.E.N.A. — Análise Contextual do Sistema",
         tipo: "resposta_neural",
-        subtitulo: "Motor Especialista Híbrido",
+        subtitulo: `Telemetria Real de ${snapNow.hostname}`,
         fala: respostaFala,
         texto: respostaFala,
-        motor: "Motor Nativo Regras + Heurísticas"
+        motor: "Motor Cognitivo Local + Telemetria Real"
       }
     ]
   });

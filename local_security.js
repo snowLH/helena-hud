@@ -1,11 +1,12 @@
 // =========================================================================
 // H.E.L.E.N.A. LOCAL SECURITY & ACCESS CONTROL
-// Proteção contra chamadas não-autorizadas e isolamento de ferramentas
+// Proteção contra chamadas não-autorizadas, autenticação Mobile & Host
 // =========================================================================
 
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const devicePairing = require('./modules/device_pairing');
 
 const RUNTIME_DIR = path.join(__dirname, 'runtime');
 const TOKEN_FILE = path.join(RUNTIME_DIR, 'auth_token.txt');
@@ -29,7 +30,6 @@ function getOrCreateLocalToken() {
     }
   } catch (_) {}
 
-  // Generate a high-entropy 256-bit token
   cachedToken = crypto.randomBytes(32).toString('hex');
   try {
     fs.writeFileSync(TOKEN_FILE, cachedToken, 'utf-8');
@@ -44,44 +44,70 @@ function isLocalIp(ip) {
   return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip === 'localhost';
 }
 
-function isAuthorizedOrigin(origin) {
-  if (!origin) return true; // Direct desktop window / local process
+function isLocalHostOrigin(origin) {
+  if (!origin) return true; // Janela nativa Electron / processo local direto
   try {
     const url = new URL(origin);
     const host = url.hostname;
-    return host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.') || host.startsWith('10.');
+    return host === 'localhost' || host === '127.0.0.1';
   } catch (_) {
     return false;
   }
 }
 
 // Middleware para endpoints de sistema e ferramentas sensíveis
+// REGRA DE SEGURANÇA: Dispositivos na mesma rede Wi-Fi (192.168.x.x) NÃO têm acesso
+// sem apresentar um x-helena-device-token válido obtido via Pareamento QR Code / PIN.
 function requireLocalAuth(req, res, next) {
   const token = getOrCreateLocalToken();
-  const providedToken = req.headers['x-helena-auth'];
+  const providedHostToken = req.headers['x-helena-auth'];
+  const providedDeviceToken = req.headers['x-helena-device-token'];
+  const clientIp = req.ip || req.connection?.remoteAddress || '';
 
-  // 1. Se o token fornecido for válido, acesso liberado
-  if (providedToken && providedToken === token) {
+  // 1. Se o token de host local for válido
+  if (providedHostToken && providedHostToken === token) {
+    req.authSource = 'HOST_TOKEN';
     return next();
   }
 
-  // 2. Se for requisição direta local (sem origin externo e de IP local), permitir
-  const clientIp = req.ip || req.connection?.remoteAddress;
-  const origin = req.headers.origin;
-
-  if (isLocalIp(clientIp) && isAuthorizedOrigin(origin)) {
+  // 2. Se for requisição direta do próprio computador (127.0.0.1 / localhost)
+  if (isLocalIp(clientIp) && isLocalHostOrigin(req.headers.origin)) {
+    req.authSource = 'LOCAL_HOST';
     return next();
   }
 
-  // 3. Caso contrário, bloqueio de segurança
+  // 3. Se for um dispositivo móvel pareado e ativo enviando x-helena-device-token
+  if (providedDeviceToken) {
+    const validation = devicePairing.validateDeviceToken(providedDeviceToken, clientIp);
+    if (validation.valid) {
+      req.authSource = 'PAIRED_MOBILE';
+      req.pairedDevice = validation.device;
+      return next();
+    }
+    return res.status(401).json({
+      error: 'Sessão mobile inválida ou revogada.',
+      detalhes: validation.reason
+    });
+  }
+
+  // 4. Bloqueio estrito para qualquer dispositivo não pareado na rede
+  devicePairing.logAuditEvent({
+    source: 'REDE_NAO_AUTENTICADA',
+    deviceName: 'Dispositivo Não Pareado',
+    ip: clientIp,
+    action: `${req.method} ${req.originalUrl}`,
+    status: 'BLOQUEADO_403',
+    details: 'Tentativa de acesso sem pareamento autorizado.'
+  });
+
   return res.status(403).json({
-    error: 'Acesso negado: Requisição não autenticada para o agente local da H.E.L.E.N.A.',
-    detalhes: 'Para executar comandos no sistema, forneça o cabeçalho x-helena-auth ou execute a partir de um host local autorizado.'
+    error: 'Acesso negado: Dispositivo não autenticado.',
+    detalhes: 'O acesso pela rede local exige pareamento prévio via QR Code ou Código PIN temporário no computador principal.'
   });
 }
 
 module.exports = {
   getOrCreateLocalToken,
   requireLocalAuth,
-  isAuthorizedOrigin
+  isLocalIp
 };

@@ -21,6 +21,8 @@ import { MemoryProfileModal } from './components/MemoryProfileModal';
 import { StudyModal } from './components/StudyModal';
 import { DownloadModal } from './components/DownloadModal';
 import { DownloadLandingPage } from './components/DownloadLandingPage';
+import { MobileControllerView } from './components/MobileControllerView';
+import { MobilePairingModal } from './components/MobilePairingModal';
 import { soundSynth } from './audio/synth';
 import { speechController } from './audio/speech';
 
@@ -60,8 +62,18 @@ export function App() {
      window.location.hostname === '127.0.0.1' || 
      window.location.hostname.endsWith('.local'));
 
-  // Detect explicit mode in query parameters: ?mode=app or ?mode=download
+  const isLanAddress = typeof window !== 'undefined' &&
+    (window.location.hostname.startsWith('192.168.') || window.location.hostname.startsWith('10.'));
+
+  // Detect explicit mode in query parameters: ?mode=app, ?mode=mobile, ?mode=download
   const [urlParams] = useState(() => typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null);
+  const [isMobilePairingOpen, setIsMobilePairingOpen] = useState<boolean>(() => urlParams?.get('pair') === '1');
+  const [isMobileView, setIsMobileView] = useState<boolean>(() => {
+    if (urlParams?.get('mode') === 'mobile' || urlParams?.get('pin')) return true;
+    if (isLanAddress && !urlParams?.get('mode')) return true;
+    return false;
+  });
+
   const forceAppMode = urlParams?.get('mode') === 'app' || urlParams?.get('app') === 'true';
   const forceDownloadMode = urlParams?.get('mode') === 'download';
 
@@ -340,7 +352,22 @@ export function App() {
     }
   };
 
-  // If not in desktop app mode, render the official download portal!
+  // 1. Mobile Controller Interface (QR Code / PIN Paired Mobile Remote)
+  if (isMobileView) {
+    return (
+      <MobileControllerView
+        onExitMobileMode={() => {
+          setIsMobileView(false);
+          const url = new URL(window.location.href);
+          url.searchParams.delete('mode');
+          url.searchParams.delete('pin');
+          window.history.replaceState({}, '', url.toString());
+        }}
+      />
+    );
+  }
+
+  // 2. If not in desktop app mode, render the official download portal!
   if (!isDesktopApp) {
     return (
       <DownloadLandingPage
@@ -382,6 +409,10 @@ export function App() {
         onOpenDownload={() => {
           soundSynth.playTelemetryBeep();
           setIsDownloadOpen(true);
+        }}
+        onOpenMobilePairing={() => {
+          soundSynth.playTelemetryBeep();
+          setIsMobilePairingOpen(true);
         }}
       />
 
@@ -543,6 +574,13 @@ export function App() {
         isOpen={isDownloadOpen}
         onClose={() => setIsDownloadOpen(false)}
         status={systemStatus}
+      />
+
+      {/* Controle Mobile Seguro (QR Code / PIN / Aprovações HITL / Instalador Windows) */}
+      <MobilePairingModal
+        isOpen={isMobilePairingOpen}
+        onClose={() => setIsMobilePairingOpen(false)}
+        onOpenMobilePreview={() => setIsMobileView(true)}
       />
     </div>
   );

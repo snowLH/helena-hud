@@ -21,6 +21,13 @@
   ],
   "memoriasEpisodicas": [
     {
+      "id": "mem-1793570601465-j3b7nk",
+      "tipo": "diagnostico",
+      "resumo": "Diagnóstico técnico executado para o sintoma: por que meu computador está lento?",
+      "data": "2026-11-01T22:03:21.465Z",
+      "relevancia": "Alta"
+    },
+    {
       "id": "mem-1793153356911-1jclwn",
       "tipo": "diagnostico",
       "resumo": "Diagnóstico técnico executado para o sintoma: por que meu notebook esquenta tanto?",
@@ -358,10 +365,10 @@
     }
   ],
   "estatisticas": {
-    "totalInteracoes": 63,
+    "totalInteracoes": 64,
     "otimizacoesRealizadas": 8,
     "briefingsExecutados": 9,
     "arquivosOrganizados": 27,
-    "ultimaInteracao": "2026-10-28T02:09:16.911Z"
+    "ultimaInteracao": "2026-11-01T22:03:21.465Z"
   }
 }

@@ -40,6 +40,7 @@ interface HeaderProps {
   onOpenMemoryProfile?: () => void;
   onOpenStudy?: () => void;
   onOpenDownload?: () => void;
+  onOpenMobilePairing?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -53,7 +54,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenCommands,
   onOpenMemoryProfile,
   onOpenStudy,
-  onOpenDownload
+  onOpenDownload,
+  onOpenMobilePairing
 }) => {
   const [timeStr, setTimeStr] = useState<string>('');
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
@@ -438,6 +440,20 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* 3. Right: Voice Pill + Controls + Clock */}
       <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        {onOpenMobilePairing && (
+          <button
+            onClick={() => {
+              soundSynth.playTelemetryBeep();
+              onOpenMobilePairing();
+            }}
+            title="Controle Seguro da H.E.L.E.N.A. pelo Celular (QR Code / PIN)"
+            className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-lg border border-emerald-500/60 bg-emerald-950/60 hover:bg-emerald-900/80 hover:border-emerald-300 text-[10px] text-emerald-200 font-mono transition-all cursor-pointer shadow-[0_0_12px_rgba(16,185,129,0.3)]"
+          >
+            <Smartphone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span className="font-semibold hidden sm:inline">CELULAR</span>
+          </button>
+        )}
+
         {onOpenDownload && (
           <button
             onClick={() => {

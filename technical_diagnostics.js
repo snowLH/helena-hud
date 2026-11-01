@@ -7,6 +7,7 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const windowsTools = require('./modules/windows_tools');
 
 const RUNTIME_DIR = path.join(__dirname, 'runtime');
 const REPORTS_DIR = path.join(RUNTIME_DIR, 'reports');
@@ -19,45 +20,57 @@ if (!fs.existsSync(REPORTS_DIR)) {
 function collectHardwareDiagnostics() {
   const isWin = process.platform === 'win32';
   const timestamp = new Date().toISOString();
+  const snap = windowsTools.getFullSystemSnapshot();
 
   const report = {
     timestamp,
     plataforma: process.platform,
     hostname: os.hostname(),
     computador: {
-      fabricante: 'LENOVO',
-      modelo: 'ThinkPad (DESKTOP-EIT8E8F)',
-      bios: 'R1EET67W(1.67)',
-      dataBios: '19/04/2026'
+      fabricante: 'Sistema Local',
+      modelo: os.hostname(),
+      bios: 'UEFI Padrão',
+      dataBios: 'N/A'
     },
     processador: {
-      modelo: os.cpus()[0]?.model || '11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz',
-      nucleosFisicos: 4,
-      threadsLogicos: os.cpus().length || 8,
+      modelo: snap.cpu.model,
+      nucleosFisicos: snap.cpu.physicalCores,
+      threadsLogicos: snap.cpu.logicalProcessors,
+      clockMaxMHz: snap.cpu.maxClockMHz,
+      usoAtualPercent: snap.cpu.loadPercent,
       arquitetura: os.arch()
     },
+    gpu: snap.gpu,
     memoriaRAM: {
-      totalGB: Math.round((os.totalmem() / (1024 ** 3)) * 10) / 10,
-      usadoGB: Math.round(((os.totalmem() - os.freemem()) / (1024 ** 3)) * 10) / 10,
-      livreGB: Math.round((os.freemem() / (1024 ** 3)) * 10) / 10,
-      modulos: [
-        { slot: 'DIMM0', capacidadeGB: 16, velocidadeMHz: 2667, fabricante: 'Crucial Technology' }
-      ]
+      totalGB: snap.ram.totalGB,
+      usadoGB: snap.ram.usedGB,
+      livreGB: snap.ram.freeGB,
+      percentualUso: snap.ram.usagePercent,
+      modulos: []
     },
     armazenamento: {
       discosFisicos: [],
       particaoC: {
-        livreGB: 70.4,
-        totalGB: 237.4,
-        percentualUso: 70
+        livreGB: snap.disks[0]?.freeGB || 50,
+        totalGB: snap.disks[0]?.totalGB || 250,
+        percentualUso: snap.disks[0]?.usedPercent || 50
       }
     },
+    arquivosTemporarios: snap.tempFiles,
+    processosMaisPesados: snap.topProcesses,
+    programasInicializacao: snap.startupItems,
+    totalInicializacao: snap.startupCount,
+    temperatura: snap.temperature,
     logsEventosCriticos: [],
     dispositivosComErro: [],
     bateria: {
-      presente: false,
+      presente: snap.battery.present,
+      percentual: snap.battery.percentage,
+      carregando: snap.battery.charging,
       saude: 'OK',
-      detalhes: 'Dispositivo alimentado por fonte de energia AC ou bateria nominal.'
+      detalhes: snap.battery.present
+        ? `Bateria em ${snap.battery.percentage}% (${snap.battery.status})`
+        : 'Equipamento alimentado diretamente via rede elétrica AC.'
     }
   };
 
@@ -194,28 +207,48 @@ function runGuidedDiagnostic(sintomaTexto, hardwareInfo = null) {
     diagnostico.resumoFala = 'Diagnóstico térmico concluído. A principal causa de aquecimento em notebooks é o ressecamento da pasta térmica e o acúmulo de poeira nas aletas do dissipador. Recomendo verificar os processos ativos e seguir o protocolo seguro de desmontagem com bateria desconectada.';
 
   } else if (lower.includes('lento') || lower.includes('travando') || lower.includes('lentidão') || lower.includes('demora')) {
-    diagnostico.categoria = 'Performance & Armazenamento';
+    diagnostico.categoria = 'Performance, RAM & Armazenamento';
     const cUsage = info.armazenamento.particaoC.percentualUso;
+    const ramPct = info.memoriaRAM.percentualUso || Math.round((info.memoriaRAM.usadoGB / info.memoriaRAM.totalGB) * 100);
+    const topProcsStr = (info.processosMaisPesados || []).slice(0, 4).map(p => `${p.name} (${p.memoryMB} MB)`).join(', ') || 'Nenhum processo crítico isolado';
+    const startupTotal = info.totalInicializacao || 0;
+    const tempCount = info.arquivosTemporarios?.fileCount || 0;
+    const tempMB = info.arquivosTemporarios?.sizeMB || 0;
+
     diagnostico.causasProvaveis = [
-      { hipotese: `Ocupação da Partição C: (${cUsage}% de ocupação)`, probabilidade: cUsage > 85 ? '80%' : '35%', evidencia: `Espaço livre: ${info.armazenamento.particaoC.livreGB} GB livres de ${info.armazenamento.particaoC.totalGB} GB. SSDs necessitam de 15% a 20% livres para Garbage Collection e TRIM.` },
-      { hipotese: 'Sobrecarga de programas na Inicialização do Windows (Boot)', probabilidade: '70%', evidencia: 'Múltiplos aplicativos disputam ciclos de leitura e I/O durante e após o login.' },
-      { hipotese: 'Fragmentação de arquivos de sistema ou catálogo Winsock saturado', probabilidade: '50%', evidencia: 'Erros e caches de DLLs podem degradar a responsividade do explorer.exe.' }
+      {
+        hipotese: `Consumo Real de Memória RAM (${info.memoriaRAM.usadoGB} GB de ${info.memoriaRAM.totalGB} GB — ${ramPct}%)`,
+        probabilidade: ramPct > 75 ? '85%' : '55%',
+        evidencia: `Maiores consumidores medidos agora no sistema: ${topProcsStr}.`
+      },
+      {
+        hipotese: `Programas na Inicialização (${startupTotal} itens) e Caches Temporários (${tempCount} arquivos / ${tempMB} MB)`,
+        probabilidade: startupTotal > 6 ? '75%' : '45%',
+        evidencia: `Foram detectados ${startupTotal} programas configurados no boot do Windows e ${tempCount} arquivos temporários em %TEMP%.`
+      },
+      {
+        hipotese: `Ocupação da Partição C: (${cUsage}% ocupado)`,
+        probabilidade: cUsage > 85 ? '80%' : '35%',
+        evidencia: `Espaço livre real: ${info.armazenamento.particaoC.livreGB} GB livres de ${info.armazenamento.particaoC.totalGB} GB.`
+      }
     ];
     diagnostico.testesRecomendados = [
-      '1. Executar a Sequência Dourada de Reparação Forense (DISM -> SFC -> Chkdsk /scan).',
-      '2. Abrir o gerenciador de Inicialização da H.E.L.E.N.A. e desativar inicializadores desnecessários.',
-      '3. Efetuar limpeza profunda de caches temporários (%TEMP% e relatórios WER).'
+      `1. Verificar os processos mais pesados em execução: ${topProcsStr}.`,
+      `2. Limpar os ${tempCount} arquivos temporários (${tempMB} MB) na pasta %TEMP%.`,
+      `3. Revisar os ${startupTotal} programas de inicialização do Windows.`,
+      '4. Executar a Sequência Dourada de Reparação Forense (DISM -> SFC -> Chkdsk /scan).'
     ];
     diagnostico.orientacoesFisicas = [
       'Se o computador ainda possuir HD Mecânico (Hard Disk), a substituição por um SSD NVMe ou SATA aumentará a velocidade em até 10 vezes.',
-      'Verificar se a memória RAM está em Dual-Channel (2 pentes idênticos) para dobrar a largura de banda da CPU.'
+      'Verificar se a memória RAM está operando em Dual-Channel para dobrar a largura de banda da CPU.'
     ];
     diagnostico.planoAcao = [
-      'Aplicar Sequência Dourada de Reparo com 1 clique.',
-      'Purgar arquivos temporários e liberar espaço na partição principal.',
-      'Aplicar calibração de baixa latência no Registro (Win32PrioritySeparation).'
+      'Executar otimização imediata para purgar temporários e renovar DNS.',
+      'Encerrar processos ociosos de alto consumo de RAM.',
+      'Aplicar Sequência Dourada de Reparo se houver lentidão persistente no Windows Explorer.'
     ];
-    diagnostico.resumoFala = `Diagnóstico de lentidão finalizado. Analisei seu processador ${info.processador.modelo} e armazenamento. Recomendo acionar a Sequência Dourada de Reparo e limpar os inicializadores de boot para restaurar a fluidez imediata do Windows.`;
+    diagnostico.resumoFala = `Diagnóstico real concluído. Seu processador ${info.processador.modelo} está com ${info.processador.usoAtualPercent || 0}% de carga e a memória RAM está em ${ramPct}% (${info.memoriaRAM.usadoGB} de ${info.memoriaRAM.totalGB} Gigabytes). Os processos que mais consomem memória agora são: ${(info.processosMaisPesados || []).slice(0, 3).map(p => p.name).join(', ')}. Também encontrei ${tempCount} arquivos temporários e ${startupTotal} programas na inicialização.`;
+
 
   } else if (lower.includes('tela azul') || lower.includes('bsod') || lower.includes('desliga sozinho') || lower.includes('reinicia')) {
     diagnostico.categoria = 'Estabilidade & Kernel Windows';

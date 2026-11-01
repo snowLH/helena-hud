@@ -24,6 +24,7 @@ fs.mkdirSync(STAGING_DIR, { recursive: true });
 // 1. Files and folders to include in portable package
 const itemsToCopy = [
   'dist',
+  'modules',
   'server.js',
   'ai_hub.js',
   'technical_diagnostics.js',
@@ -32,6 +33,9 @@ const itemsToCopy = [
   'perfil_usuario.json',
   'memoria_longa.json',
   'package.json',
+  'HELENA_Setup.exe',
+  'HELENA_Desktop.exe',
+  'Uninstall_HELENA.exe',
   'Iniciar_HELENA.bat',
   'HELENA_PENDRIVE.bat',
   'HELENA_DESKTOP.vbs',
@@ -55,9 +59,26 @@ for (const item of itemsToCopy) {
   }
 }
 
-// 2. Also copy HELENA_PENDRIVE.bat directly to downloads folder for single-click bat download
+// Copy public/icons for native .exe tray icon
+const iconsSrc = path.join(ROOT_DIR, 'public', 'icons');
+const iconsDest = path.join(STAGING_DIR, 'public', 'icons');
+if (fs.existsSync(iconsSrc)) {
+  fs.cpSync(iconsSrc, iconsDest, { recursive: true });
+}
+
+// Remove dist/downloads inside staging so zip doesn't nest itself
+const stagingDistDownloads = path.join(STAGING_DIR, 'dist', 'downloads');
+if (fs.existsSync(stagingDistDownloads)) {
+  fs.rmSync(stagingDistDownloads, { recursive: true, force: true });
+}
+
+// 2. Also copy HELENA_PENDRIVE.bat and HELENA_Setup.exe directly to downloads folder
 fs.copyFileSync(path.join(ROOT_DIR, 'HELENA_PENDRIVE.bat'), path.join(PUBLIC_DOWNLOADS, 'HELENA_PENDRIVE.bat'));
 fs.copyFileSync(path.join(ROOT_DIR, 'HELENA_PENDRIVE.bat'), path.join(DIST_DOWNLOADS, 'HELENA_PENDRIVE.bat'));
+if (fs.existsSync(path.join(ROOT_DIR, 'HELENA_Setup.exe'))) {
+  fs.copyFileSync(path.join(ROOT_DIR, 'HELENA_Setup.exe'), path.join(PUBLIC_DOWNLOADS, 'HELENA_Setup.exe'));
+  fs.copyFileSync(path.join(ROOT_DIR, 'HELENA_Setup.exe'), path.join(DIST_DOWNLOADS, 'HELENA_Setup.exe'));
+}
 
 // 3. Compress using PowerShell Compress-Archive
 const zipDest = path.join(PUBLIC_DOWNLOADS, 'helena-portatil.zip');

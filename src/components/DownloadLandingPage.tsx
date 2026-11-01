@@ -178,7 +178,7 @@ export const DownloadLandingPage: React.FC<DownloadLandingPageProps> = ({ onOpen
 
           {/* PRIMARY DOWNLOAD BUTTONS */}
           <div id="download" className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-4">
-            {/* Main ZIP Download */}
+            {/* Main ZIP Download (Includes HELENA_Setup.exe + HELENA_Desktop.exe + Portátil) */}
             <a
               href="/downloads/helena-portatil.zip"
               download="helena-portatil.zip"
@@ -186,24 +186,24 @@ export const DownloadLandingPage: React.FC<DownloadLandingPageProps> = ({ onOpen
             >
               <Download className="w-5 h-5 text-slate-950 group-hover:translate-y-0.5 transition-transform" />
               <div className="text-left font-mono">
-                <div className="leading-tight">BAIXAR H.E.L.E.N.A. PORTÁTIL (ZIP)</div>
-                <div className="text-[11px] font-normal text-slate-900/80">
-                  Pacote Completo • 0.78 MB • Para Pen Drive ou PC
+                <div className="leading-tight">BAIXAR PACOTE COMPLETO + INSTALADOR (.ZIP)</div>
+                <div className="text-[11px] font-normal text-slate-900/90">
+                  Inclui HELENA_Setup.exe, HELENA_Desktop.exe e Versão Pen Drive
                 </div>
               </div>
             </a>
 
-            {/* Direct BAT Launcher */}
+            {/* Direct .EXE Installer */}
             <a
-              href="/downloads/HELENA_PENDRIVE.bat"
-              download="HELENA_PENDRIVE.bat"
-              className="w-full sm:w-auto px-6 py-4 rounded-2xl border-2 border-cyan-500/40 bg-slate-900/80 hover:bg-cyan-950/30 hover:border-cyan-400 text-white font-bold text-sm sm:text-base transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_20px_rgba(0,240,255,0.15)] flex items-center justify-center gap-3 group cursor-pointer"
+              href="/downloads/HELENA_Setup.exe"
+              download="HELENA_Setup.exe"
+              className="w-full sm:w-auto px-6 py-4 rounded-2xl border-2 border-emerald-500/50 bg-emerald-950/30 hover:bg-emerald-900/40 hover:border-emerald-400 text-white font-bold text-sm sm:text-base transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_20px_rgba(16,185,129,0.2)] flex items-center justify-center gap-3 group cursor-pointer"
             >
-              <Terminal className="w-5 h-5 text-cyan-400 group-hover:rotate-12 transition-transform" />
+              <Laptop className="w-5 h-5 text-emerald-400 group-hover:scale-110 transition-transform" />
               <div className="text-left font-mono">
-                <div className="leading-tight">BAIXAR LAUNCHER (.BAT)</div>
-                <div className="text-[11px] font-normal text-slate-400">
-                  Inicializador 1-Clique • Auto-configurável
+                <div className="leading-tight">INSTALADOR WINDOWS (.EXE)</div>
+                <div className="text-[11px] font-normal text-emerald-200/80">
+                  Cria Atalhos, Menu Iniciar & System Tray
                 </div>
               </div>
             </a>
@@ -212,19 +212,19 @@ export const DownloadLandingPage: React.FC<DownloadLandingPageProps> = ({ onOpen
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs font-mono text-slate-400 pt-2">
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />
-              Zero Instalação
+              Instalador Nativo (.EXE) Incluso
             </span>
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />
-              Sem Direitos de Administrador
+              Execução em 2º Plano (Bandeja Windows)
             </span>
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />
-              Compatível com Qualquer Pen Drive
+              Controle Seguro pelo Celular (QR Code)
             </span>
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />
-              100% Gratuito & Aberto
+              Portátil para Qualquer Pen Drive
             </span>
           </div>
         </section>
