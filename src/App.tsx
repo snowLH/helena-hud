@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import type {
   SystemStatus,
@@ -23,8 +23,14 @@ import { DownloadModal } from './components/DownloadModal';
 import { DownloadLandingPage } from './components/DownloadLandingPage';
 import { MobileControllerView } from './components/MobileControllerView';
 import { MobilePairingModal } from './components/MobilePairingModal';
+import { WakeWordModal } from './components/WakeWordModal';
 import { soundSynth } from './audio/synth';
 import { speechController } from './audio/speech';
+import { wakeWordController } from './audio/wakeWord';
+
+const EcosystemView = lazy(() =>
+  import('./components/ecosystem/EcosystemView').then((m) => ({ default: m.EcosystemView }))
+);
 
 export function App() {
   // Telemetry & Data
@@ -46,11 +52,17 @@ export function App() {
   const [selectedDockCard, setSelectedDockCard] = useState<HelenaCard | null>(null);
 
   // UI Modals & Processing
+  const [viewMode, setViewMode] = useState<'hud' | '3d'>(() => {
+    const p = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    return p?.get('view') === '3d' ? '3d' : 'hud';
+  });
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isCommandsOpen, setIsCommandsOpen] = useState<boolean>(false);
   const [isMemoryProfileOpen, setIsMemoryProfileOpen] = useState<boolean>(false);
   const [isStudyOpen, setIsStudyOpen] = useState<boolean>(false);
   const [isDownloadOpen, setIsDownloadOpen] = useState<boolean>(false);
+  const [isWakeWordOpen, setIsWakeWordOpen] = useState<boolean>(false);
+  const [wakeWordState, setWakeWordState] = useState<'PASSIVE_LISTENING' | 'AWAITING_COMMAND' | 'PROCESSING_COMMAND' | 'DISABLED'>('PASSIVE_LISTENING');
   const [settingsTab, setSettingsTab] = useState<SettingsTabType>('jarvis_voz');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
@@ -164,6 +176,10 @@ export function App() {
         e.preventDefault();
         soundSynth.playTelemetryBeep();
         setIsMemoryProfileOpen(prev => !prev);
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '3') {
+        e.preventDefault();
+        soundSynth.playTelemetryBeep();
+        setViewMode(prev => (prev === 'hud' ? '3d' : 'hud'));
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
         e.preventDefault();
         executeOptimizationFlow();
@@ -316,6 +332,18 @@ export function App() {
       await speechController.speak("Central de estudos e foco tático ativada, Comandante. O temporizador e frequências de concentração estão prontos.");
       return;
     }
+    if (cmd.includes('visão 3d') || cmd.includes('visao 3d') || cmd.includes('escritório 3d') || cmd.includes('escritorio 3d') || cmd.includes('modo 3d') || cmd.includes('ecossistema 3d') || cmd.includes('quartel general')) {
+      soundSynth.playTelemetryBeep();
+      setViewMode('3d');
+      await speechController.speak("Alternando para o Quartel-General 3D da H.E.L.E.N.A. nas montanhas. Esquadrão Multi-IA em posição.");
+      return;
+    }
+    if (cmd.includes('painel hud') || cmd.includes('voltar ao hud') || cmd.includes('modo hud')) {
+      soundSynth.playTelemetryBeep();
+      setViewMode('hud');
+      await speechController.speak("Retornando ao Painel de Controle Tático HUD.");
+      return;
+    }
 
     // Custom or free query via brain - APRESENTA APENAS UMA TELA NA FRENTE
     setIsProcessing(true);
@@ -351,6 +379,22 @@ export function App() {
       setIsProcessing(false);
     }
   };
+
+  // Initialize continuous Wake Word ("HELENA") listener & state subscription
+  useEffect(() => {
+    if (!isDesktopApp) return;
+    wakeWordController.init((spokenCmd) => {
+      handleExecuteCommand(spokenCmd);
+    });
+    const unsub = wakeWordController.subscribe((st) => {
+      if (st.listenerState) {
+        setWakeWordState(st.listenerState);
+      } else if (st.config && typeof st.config.enabled === 'boolean') {
+        setWakeWordState(st.config.enabled ? 'PASSIVE_LISTENING' : 'DISABLED');
+      }
+    });
+    return () => unsub();
+  }, [isDesktopApp]);
 
   // 1. Mobile Controller Interface (QR Code / PIN Paired Mobile Remote)
   if (isMobileView) {
@@ -414,6 +458,15 @@ export function App() {
           soundSynth.playTelemetryBeep();
           setIsMobilePairingOpen(true);
         }}
+        onOpenWakeWord={() => {
+          soundSynth.playTelemetryBeep();
+          setIsWakeWordOpen(true);
+        }}
+        wakeWordState={wakeWordState}
+        viewMode={viewMode}
+        onToggleViewMode={(nextMode) => {
+          setViewMode((prev) => nextMode || (prev === 'hud' ? '3d' : 'hud'));
+        }}
       />
 
       {/* Cloud Sandbox Notice Banner (Shown ONLY if accessed on remote cloud and local agent is not bridged) */}
@@ -450,96 +503,112 @@ export function App() {
         </div>
       )}
 
-      {/* Main HUD Body */}
-      <main className="relative flex-1 flex items-center justify-between px-3 sm:px-6 py-1 overflow-hidden min-h-0">
-        {/* Left Widget Panel */}
-        <div className="hidden lg:flex shrink-0">
-          <LeftPanel status={systemStatus} onOpenDownload={() => setIsDownloadOpen(true)} />
-        </div>
+      {/* Main Body: Instant Real-Time Toggle between Classic HUD Control Panel and 3D Ecosystem HQ */}
+      {viewMode === '3d' ? (
+        <main className="relative flex-1 w-full h-full overflow-hidden min-h-0">
+          <Suspense
+            fallback={
+              <div className="w-full h-full flex items-center justify-center bg-slate-950 text-cyan-400 font-mono text-sm">
+                Carregando Escritório Holográfico 3D H.E.L.E.N.A. sob demanda...
+              </div>
+            }
+          >
+            <EcosystemView onBackToHud={() => setViewMode('hud')} />
+          </Suspense>
+        </main>
+      ) : (
+        <>
+          <main className="relative flex-1 flex items-center justify-between px-3 sm:px-6 py-1 overflow-hidden min-h-0">
+            {/* Left Widget Panel */}
+            <div className="hidden lg:flex shrink-0">
+              <LeftPanel status={systemStatus} onOpenDownload={() => setIsDownloadOpen(true)} />
+            </div>
 
-        {/* Central Stage: 3D Energy Orb & Active Focus Cards */}
-        <div className="relative flex-1 flex flex-col items-center justify-center h-full px-2 sm:px-4 min-h-0">
-          {/* Energy Orb Canvas Layer */}
-          <div className="relative flex items-center justify-center">
-            <EnergyOrb
-              state={helenaState}
-              isSpeaking={isSpeaking}
-              biometricActive={biometricActive}
-              biometricConfirmed={biometricConfirmed}
+            {/* Central Stage: 3D Energy Orb & Active Focus Cards */}
+            <div className="relative flex-1 flex flex-col items-center justify-center h-full px-2 sm:px-4 min-h-0">
+              {/* Energy Orb Canvas Layer */}
+              <div className="relative flex items-center justify-center">
+                <EnergyOrb
+                  state={helenaState}
+                  isSpeaking={isSpeaking}
+                  biometricActive={biometricActive}
+                  biometricConfirmed={biometricConfirmed}
+                />
+
+                {/* Overlaid Animated Card in Center Focus */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <AnimatePresence mode="wait">
+                    {consolidationActive && (
+                      <div className="pointer-events-auto">
+                        <ConsolidationOverlay onComplete={() => {}} />
+                      </div>
+                    )}
+
+                    {currentCard && !consolidationActive && (
+                      <div className="pointer-events-auto">
+                        <CardFocus
+                          card={currentCard}
+                          isSpeaking={isSpeaking}
+                          onClose={() => {
+                            speechController.stop();
+                            activeFlowRef.current = false;
+                            setIsProcessing(false);
+                            setCurrentCard(null);
+                          }}
+                          onPinToDock={() => {
+                            pushCardToDock(currentCard);
+                          }}
+                          onOpenStudy={() => setIsStudyOpen(true)}
+                          onReplaySpeech={(text) => speechController.speak(text)}
+                        />
+                      </div>
+                    )}
+
+                    {selectedDockCard && !currentCard && !consolidationActive && (
+                      <div className="pointer-events-auto">
+                        <CardFocus
+                          card={selectedDockCard}
+                          isSpeaking={false}
+                          onClose={() => setSelectedDockCard(null)}
+                          onOpenStudy={() => setIsStudyOpen(true)}
+                          onReplaySpeech={(text) => speechController.speak(text)}
+                        />
+                      </div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Widget Panel */}
+            <div className="hidden lg:flex shrink-0">
+              <RightPanel
+                status={systemStatus}
+                personalData={personalData}
+                isSpeaking={isSpeaking}
+                onQuickOptimize={executeOptimizationFlow}
+              />
+            </div>
+          </main>
+
+          {/* Footer Area: Bottom Dock + Quick Command Bar */}
+          <footer className="w-full flex flex-col items-center pb-2 px-3 sm:px-6 z-30 gap-1.5 shrink-0">
+            <BottomDock
+              cards={dockCards}
+              onSelectCard={(card) => {
+                setSelectedDockCard(card);
+              }}
+              onClearDock={() => setDockCards([])}
+              activeCardId={selectedDockCard?.id || currentCard?.id}
             />
 
-            {/* Overlaid Animated Card in Center Focus */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <AnimatePresence mode="wait">
-                {consolidationActive && (
-                  <div className="pointer-events-auto">
-                    <ConsolidationOverlay onComplete={() => {}} />
-                  </div>
-                )}
-
-                {currentCard && !consolidationActive && (
-                  <div className="pointer-events-auto">
-                    <CardFocus
-                      card={currentCard}
-                      isSpeaking={isSpeaking}
-                      onClose={() => {
-                        speechController.stop();
-                        activeFlowRef.current = false;
-                        setIsProcessing(false);
-                        setCurrentCard(null);
-                      }}
-                      onPinToDock={() => {
-                        pushCardToDock(currentCard);
-                      }}
-                      onOpenStudy={() => setIsStudyOpen(true)}
-                      onReplaySpeech={(text) => speechController.speak(text)}
-                    />
-                  </div>
-                )}
-
-                {selectedDockCard && !currentCard && !consolidationActive && (
-                  <div className="pointer-events-auto">
-                    <CardFocus
-                      card={selectedDockCard}
-                      isSpeaking={false}
-                      onClose={() => setSelectedDockCard(null)}
-                      onOpenStudy={() => setIsStudyOpen(true)}
-                      onReplaySpeech={(text) => speechController.speak(text)}
-                    />
-                  </div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Widget Panel */}
-        <div className="hidden lg:flex shrink-0">
-          <RightPanel
-            status={systemStatus}
-            personalData={personalData}
-            isSpeaking={isSpeaking}
-            onQuickOptimize={executeOptimizationFlow}
-          />
-        </div>
-      </main>
-
-      {/* Footer Area: Bottom Dock + Quick Command Bar */}
-      <footer className="w-full flex flex-col items-center pb-2 px-3 sm:px-6 z-30 gap-1.5 shrink-0">
-        <BottomDock
-          cards={dockCards}
-          onSelectCard={(card) => {
-            setSelectedDockCard(card);
-          }}
-          onClearDock={() => setDockCards([])}
-          activeCardId={selectedDockCard?.id || currentCard?.id}
-        />
-
-        <CommandBar
-          onExecuteCommand={handleExecuteCommand}
-          isProcessing={isProcessing}
-        />
-      </footer>
+            <CommandBar
+              onExecuteCommand={handleExecuteCommand}
+              isProcessing={isProcessing}
+            />
+          </footer>
+        </>
+      )}
 
       {/* Settings Modal (dados_pessoais.json editor, voz, startup & reparo) */}
       <SettingsModal
@@ -581,6 +650,13 @@ export function App() {
         isOpen={isMobilePairingOpen}
         onClose={() => setIsMobilePairingOpen(false)}
         onOpenMobilePreview={() => setIsMobileView(true)}
+      />
+
+      {/* Ativação por Voz Permanente — Wake Word ("HELENA") & Modos Desktop */}
+      <WakeWordModal
+        isOpen={isWakeWordOpen}
+        onClose={() => setIsWakeWordOpen(false)}
+        onExecuteCommand={handleExecuteCommand}
       />
     </div>
   );

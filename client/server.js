@@ -14,12 +14,15 @@ const technicalDiagnostics = require('./technical_diagnostics');
 const windowsTools = require('./modules/windows_tools');
 const devicePairing = require('./modules/device_pairing');
 const conversationDb = require('./modules/conversation_db');
+const ecosystemEngine = require('./modules/ecosystem_engine');
+const memoryStore = require('./modules/memory_store');
+const wakeWordService = require('./modules/wake_word_service');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '25mb' }));
 
 // Serve static build from dist (or client/dist or ../dist fallback)
 const distPath = fs.existsSync(path.join(__dirname, 'dist'))
@@ -2626,12 +2629,20 @@ app.post('/api/helena/brain', async (req, res) => {
     if (!turnPersisted && rawCmd && body && Array.isArray(body.cartoes) && body.cartoes.length > 0) {
       turnPersisted = true;
       const firstCard = body.cartoes[0];
+      const summaryText = firstCard.fala || firstCard.texto || firstCard.titulo || 'Comando processado.';
       conversationDb.appendConversationTurn({
         userText: rawCmd,
-        assistantText: firstCard.fala || firstCard.texto || firstCard.titulo || 'Comando processado.',
+        assistantText: summaryText,
         intent: body.intent || 'geral',
         cardTitle: firstCard.titulo || null,
         toolUsed: firstCard.motor || firstCard.tipo || null
+      });
+      memoryStore.recordExecutionHistory({
+        command: rawCmd,
+        intent: body.intent || 'geral',
+        toolUsed: firstCard.motor || firstCard.tipo || 'helena_brain',
+        status: 'completed',
+        summary: summaryText.slice(0, 260)
       });
     }
     return originalJson(body);
@@ -2695,6 +2706,140 @@ Diretrizes:
       };
     }
     return { success: false, text: outputText || 'Provedor externo não configurado.' };
+  }
+
+  // 0.000-M. MISSÃO MULTIAGENTE & DECOMPOSIÇÃO DE PROJETOS COMPLEXOS (FASE 3 & 4)
+  if (
+    cmd.includes('quero desenvolver') || cmd.includes('desenvolver um aplicativo') ||
+    cmd.includes('desenvolver um app') || cmd.includes('criar um aplicativo') ||
+    cmd.includes('criar um app') || cmd.includes('desenvolver um sistema') ||
+    cmd.includes('planejar projeto') || cmd.includes('equipe de agentes') ||
+    cmd.includes('esquadrão de agentes') || cmd.includes('acionar agentes') ||
+    cmd.includes('delegar para os agentes')
+  ) {
+    const missionPlan = await ecosystemEngine.triggerMissionFromHelenaBrain({ userTask: rawCmd });
+    memoryStore.upsertProject({
+      name: rawCmd.slice(0, 70),
+      description: `Projeto estruturado e decomposto pela HELENA-CORE junto aos 4 agentes especialistas.`,
+      path: path.join(__dirname, 'runtime', 'deliverables'),
+      stack: ['TypeScript', 'React', 'Node.js', 'SQLite/JSON'],
+      status: 'Em Execução Multiagente'
+    });
+    memoryStore.recordDecision({
+      topic: `Decomposição Multiagente: ${rawCmd.slice(0, 60)}`,
+      decision: 'Delegação paralela para ATHENA-EDU (Pesquisa/Requisitos), FORGE-DEV (Arquitetura/Código), VAULT-FS (Estrutura de Diretórios) e VERITAS-QA (Auditoria).',
+      rationale: 'Solicitação complexa de engenharia de software decomposta pelo Orquestrador Central HELENA-CORE.'
+    });
+
+    const fala = `Afirmativo, Comandante. Analisei seu objetivo ("${rawCmd}") e estruturei o plano completo de engenharia. Acionei imediatamente meus quatro agentes especialistas em paralelo no Escritório Holográfico 3D: ATHENA-EDU está estruturando os requisitos e metodologias, FORGE-DEV está projetando a arquitetura e código-fonte, VAULT-FS está preparando a árvore de diretórios e VERITAS-QA realizará a auditoria final de qualidade.`;
+    const textoPlano = [
+      `🎯 OBJETIVO PRINCIPAL: ${rawCmd}`,
+      ``,
+      `📋 DECOMPOSIÇÃO DO ORQUESTRADOR CENTRAL (HELENA-CORE):`,
+      `1. [ATHENA-EDU • Agente Acadêmico]: Levantamento de requisitos funcionais, regras de domínio e síntese metodológica.`,
+      `2. [FORGE-DEV • Agente Construtor]: Definição da stack tecnológica, arquitetura modular, banco de dados e prototipação de código.`,
+      `3. [VAULT-FS • Agente Arquivista]: Estruturação das pastas do projeto e artefatos em runtime/deliverables.`,
+      `4. [VERITAS-QA • Agente Revisor]: Auditoria técnica de segurança, validação de invariantes e aprovação executiva.`,
+      ``,
+      `⚡ STATUS: Pipeline multiagente iniciado em segundo plano (${missionPlan.tasksCreated?.length || 4} tarefas ativas). Abra o modo "3D • ESCRITÓRIO HOLOGRÁFICO" no topo para acompanhar os agentes trabalhando em tempo real.`
+    ].join('\n');
+
+    return res.json({
+      intent: 'multiagent_mission',
+      missionPlan,
+      cartoes: [
+        {
+          id: 'card-multiagent-' + Date.now(),
+          titulo: 'Orquestração Multiagente — Plano de Engenharia Ativo',
+          tipo: 'resposta_neural',
+          subtitulo: 'HELENA-CORE + 4 Agentes Especialistas em Execução Paralela',
+          fala,
+          texto: textoPlano,
+          motor: 'Orquestrador Multiagente HELENA-CORE'
+        }
+      ]
+    });
+  }
+
+  // 0.000-C. CRIAR PASTA NO COMPUTADOR ("HELENA, crie uma pasta chamada Projetos")
+  if (
+    cmd.includes('crie uma pasta') || cmd.includes('criar uma pasta') ||
+    cmd.includes('crie a pasta') || cmd.includes('criar pasta') ||
+    cmd.startsWith('nova pasta')
+  ) {
+    let parentScope = 'desktop';
+    if (cmd.includes('em documentos') || cmd.includes('nos documentos') || cmd.includes('pasta documentos')) {
+      parentScope = 'documents';
+    } else if (cmd.includes('em downloads') || cmd.includes('nos downloads') || cmd.includes('pasta downloads')) {
+      parentScope = 'downloads';
+    }
+
+    let folderName = rawCmd
+      .replace(/^helena[,:\s]*/i, '')
+      .replace(/^(?:por favor\s+)?(?:crie|criar|nova)\s+(?:uma\s+|a\s+)?pasta\s*(?:chamada|com\s+o\s+nome|nomeada)?\s*/i, '')
+      .replace(/\s+(?:na|em|no|nos)\s+(?:minha\s+)?(?:área de trabalho|area de trabalho|desktop|pasta\s+documentos|documentos|pasta\s+downloads|downloads).*$/i, '')
+      .replace(/[.!?]+$/, '')
+      .trim();
+
+    if (!folderName) folderName = 'Projetos';
+
+    const createRes = windowsTools.createUserFolder(folderName, parentScope);
+    const fala = createRes.success
+      ? createRes.message
+      : `Não foi possível criar a pasta "${folderName}": ${createRes.error}`;
+
+    return res.json({
+      intent: 'create_folder',
+      pastaCriada: createRes,
+      cartoes: [
+        {
+          id: 'card-create-folder-' + Date.now(),
+          titulo: `Gerenciador de Diretórios: "${createRes.folderName || folderName}"`,
+          tipo: 'resposta_neural',
+          subtitulo: createRes.path || parentScope.toUpperCase(),
+          fala,
+          texto: createRes.success
+            ? `✅ Pasta pronta no sistema de arquivos real:\n• Nome: ${createRes.folderName}\n• Caminho Completo: ${createRes.path}\n• Status: ${createRes.alreadyExisted ? 'Já existia (preservada)' : 'Criada agora com sucesso'}`
+            : fala,
+          motor: 'Sistema de Arquivos Nativo Windows'
+        }
+      ]
+    });
+  }
+
+  // 0.000-P. VERIFICAR DESEMPENHO DO COMPUTADOR ("HELENA, verifique o desempenho do meu computador")
+  if (
+    cmd.includes('verifique o desempenho') || cmd.includes('verificar o desempenho') ||
+    cmd.includes('verificar desempenho') || cmd.includes('desempenho do meu computador') ||
+    cmd.includes('desempenho do computador') || cmd.includes('analisar desempenho')
+  ) {
+    const snap = windowsTools.getFullSystemSnapshot();
+    const bench = runSystemBenchmark();
+    const topProcList = (snap.topProcesses || []).slice(0, 4).map(p => `${p.name} (${p.memoryMB} MB)`).join(', ');
+    const fala = `Verificação de desempenho concluída em ${snap.hostname}, Comandante. O processador ${snap.cpu.model} opera a ${cpuUsage}% de carga, a memória RAM está em ${ramGB} de ${totalRAM} Gigabytes (${ramPercent}%), restam ${disk.freeGB} Gigabytes livres no disco C: e o índice de benchmark atingiu ${bench.score} de 1000 pontos (${bench.rating}).`;
+
+    return res.json({
+      intent: 'performance_check',
+      benchmark: bench,
+      snapshot: snap,
+      cartoes: [
+        {
+          id: 'card-perf-' + Date.now(),
+          titulo: `Diagnóstico de Desempenho: ${bench.score}/1000 (${bench.rating})`,
+          tipo: 'relatorio_geral',
+          subtitulo: `${snap.cpu.model} • RAM ${ramPercent}% • Disco ${disk.freeGB} GB Livres`,
+          fala,
+          dados: {
+            processador: `${snap.cpu.model} (${cpuUsage}% em uso)`,
+            nucleos: `${snap.cpu.physicalCores} Físicos / ${snap.cpu.logicalProcessors} Lógicos`,
+            ram: `${ramGB} / ${totalRAM} GB (${ramPercent}%) — Top: ${topProcList}`,
+            disco: `${disk.freeGB} GB Livres de ${disk.totalGB} GB (${bench.diskThroughputMBps} MB/s)`,
+            rede: `${network.latencyMs} ms (${network.host})`,
+            uptime: `Score Benchmark: ${bench.score}/1000 (${bench.hashesPerSec.toLocaleString('pt-BR')} hashes/s)`
+          }
+        }
+      ]
+    });
   }
 
   // 0.000-A. PESQUISA LOCAL DE ARQUIVOS E GERENCIAMENTO DE JANELAS / PASTAS
@@ -2892,29 +3037,36 @@ Diretrizes:
 
   // 0.02. HABILIDADE #3: ORGANIZADOR E LEITORA DE DOCUMENTOS
   if (
+    cmd.includes('organize minha pasta') || cmd.includes('organize a pasta') ||
+    cmd.includes('organizar minha pasta') || cmd.includes('organizar pasta') ||
     cmd.includes('organizar meus arquivos') || cmd.includes('organizar arquivos') ||
     cmd.includes('organizar downloads') || cmd.includes('varrer documentos') ||
     cmd.includes('meus documentos') || cmd.includes('leitora de documentos') ||
     cmd.includes('limpar downloads') || cmd.includes('arquivos na pasta')
   ) {
     const fileStats = getDocumentsAndDownloadsStats();
-    appendMemoria('organizacao_arquivos', `Varredura de arquivos: ${fileStats.downloads.totalFiles} itens em Downloads e ${fileStats.documents.totalFiles} em Documentos.`, 'Baixa');
+    let archivistPlan = null;
+    try {
+      archivistPlan = ecosystemEngine.scanDirectoryForOrganization(path.join(os.homedir(), 'Downloads'));
+    } catch (_) {}
+    appendMemoria('organizacao_arquivos', `Varredura de arquivos via VAULT-FS: ${fileStats.downloads.totalFiles} itens em Downloads e ${fileStats.documents.totalFiles} em Documentos.`, 'Baixa');
 
     const totalFound = fileStats.totalFilesFound || 0;
     const speech = totalFound > 0
-      ? `Varredura de arquivos concluída, Comandante. Identifiquei ${fileStats.downloads.totalFiles} itens na pasta Downloads e ${fileStats.documents.totalFiles} em Documentos, organizados em PDFs, imagens, instaladores e planilhas. Você pode organizá-los em pastas com um clique.`
-      : `Varredura de arquivos concluída, Comandante. As pastas de Downloads e Documentos já estão limpas e organizadas, sem arquivos residuais pendentes.`;
+      ? `Varredura de arquivos concluída pelo agente Arquivista VAULT-FS, Comandante. Identifiquei ${fileStats.downloads.totalFiles} itens na pasta Downloads e ${fileStats.documents.totalFiles} em Documentos, classificados em PDFs, imagens, instaladores e planilhas. Você pode aprovar a organização em subpastas com um clique.`
+      : `Varredura de arquivos concluída pelo agente Arquivista VAULT-FS, Comandante. As pastas de Downloads e Documentos já estão limpas e organizadas, sem arquivos residuais pendentes.`;
 
     const sub = totalFound > 0
-      ? `${totalFound} arquivos identificados em Downloads e Documentos`
+      ? `${totalFound} arquivos catalogados por VAULT-FS em Downloads e Documentos`
       : 'Pastas limpas // Nenhum arquivo residual pendente';
 
     return res.json({
       intent: 'organizador_arquivos',
+      archivistPlan,
       cartoes: [
         {
           id: 'card-organizador-arquivos',
-          titulo: 'Organizador de Documentos Locais',
+          titulo: 'Organizador de Documentos Locais (Agente VAULT-FS)',
           tipo: 'organizador_arquivos',
           subtitulo: sub,
           fala: speech,
@@ -3354,51 +3506,30 @@ Diretrizes:
     });
   }
 
-  // 3. ABRIR APLICATIVOS
+  // 3. ABRIR APLICATIVOS E PROJETOS ("HELENA, abra o Discord", "HELENA, abra meu projeto no Antigravity")
   if (
     cleanCmd.startsWith('abrir ') || cleanCmd.startsWith('abra ') ||
     cmd.includes('abrir ') || cmd.includes('abra ') ||
     cmd.includes('lançar app') || cmd.includes('iniciar app')
   ) {
-    const appQuery = cleanCmd.replace(/^(abrir|abra|lançar|iniciar)\s+/i, '').trim();
-    const appMap = {
-      'calculadora': { key: 'calc', label: 'Calculadora' },
-      'bloco de notas': { key: 'notepad', label: 'Bloco de Notas' },
-      'gerenciador de tarefas': { key: 'taskmgr', label: 'Gerenciador de Tarefas' },
-      'gerenciador': { key: 'taskmgr', label: 'Gerenciador de Tarefas' },
-      'arquivos': { key: 'explorer', label: 'Explorador de Arquivos' },
-      'explorer': { key: 'explorer', label: 'Explorador de Arquivos' },
-      'cmd': { key: 'cmd', label: 'Prompt de Comando' },
-      'terminal': { key: 'cmd', label: 'Prompt de Comando' },
-      'painel de controle': { key: 'control', label: 'Painel de Controle' },
-      'painel': { key: 'control', label: 'Painel de Controle' },
-      'limpeza de disco': { key: 'cleanmgr', label: 'Limpeza de Disco' },
-      'configurações': { key: 'settings', label: 'Configurações do Windows' },
-      'configuracoes': { key: 'settings', label: 'Configurações do Windows' },
-      'navegador': { key: 'browser', label: 'Navegador Web' }
-    };
+    const appQuery = cleanCmd
+      .replace(/^(?:por favor\s+)?(?:abrir|abra|lançar|iniciar)\s+(?:o\s+|a\s+|meu\s+)?/i, '')
+      .replace(/[.!?]+$/, '')
+      .trim();
 
-    const matched = appMap[appQuery] ||
-      (appQuery.includes('calc') ? appMap['calculadora'] : null) ||
-      (appQuery.includes('nota') ? appMap['bloco de notas'] : null) ||
-      (appQuery.includes('tarefa') ? appMap['gerenciador de tarefas'] : null) ||
-      (appQuery.includes('gerenciador') ? appMap['gerenciador de tarefas'] : null) ||
-      (appQuery.includes('painel') ? appMap['painel de controle'] : null) ||
-      (appQuery.includes('terminal') ? appMap['terminal'] : null) ||
-      (appQuery.includes('cmd') ? appMap['cmd'] : null);
-
-    if (matched) {
-      try { exec(`start ${matched.key}`); } catch (_) {}
+    if (appQuery) {
+      const launchRes = windowsTools.launchAppOrProject(appQuery, __dirname);
       return res.json({
         intent: 'launch_app',
+        launchDetails: launchRes,
         cartoes: [
           {
-            id: 'card-app-launch',
-            titulo: 'Lançador de Aplicativos',
+            id: 'card-app-launch-' + Date.now(),
+            titulo: 'Lançador de Aplicativos e Projetos',
             tipo: 'app_launcher',
-            subtitulo: `${matched.label} Aberto`,
-            fala: `Abrindo ${matched.label} imediatamente, Comandante.`,
-            appLancado: matched.label
+            subtitulo: `${launchRes.label || appQuery} Acionado`,
+            fala: launchRes.message || `Abrindo ${launchRes.label || appQuery} imediatamente, Comandante.`,
+            appLancado: launchRes.label || appQuery
           }
         ]
       });
@@ -3811,6 +3942,168 @@ app.get('/api/network/info', (req, res) => {
   });
 });
 
+// 12. 3D Ecosystem & Multi-Agent Engine Routes (PC Inside Integrated into H.E.L.E.N.A.)
+ecosystemEngine.registerEcosystemRoutes(app);
+
+// Helper to invoke /api/helena/brain internally (used by Wake Word Service & Mobile Controller)
+async function invokeBrainInternal(commandText) {
+  return new Promise((resolve) => {
+    const reqMock = { body: { command: commandText, historico: [] } };
+    const resMock = {
+      status: () => resMock,
+      json: (payload) => resolve(payload)
+    };
+    try {
+      const layer = app._router.stack.find(
+        l => l.route && l.route.path === '/api/helena/brain' && l.route.methods.post
+      );
+      if (layer && layer.route.stack[0]) {
+        Promise.resolve(layer.route.stack[0].handle(reqMock, resMock, () => {})).catch(err => {
+          resolve({ intent: 'error', cartoes: [{ fala: 'Erro interno ao processar comando: ' + err.message }] });
+        });
+      } else {
+        resolve({ intent: 'error', cartoes: [{ fala: 'Rota cerebral indisponível.' }] });
+      }
+    } catch (err) {
+      resolve({ intent: 'error', cartoes: [{ fala: 'Exceção ao acionar cérebro: ' + err.message }] });
+    }
+  });
+}
+
+// Initialize Permanent Wake Word Service ("HELENA")
+wakeWordService.initWakeWordService({
+  processBrainCommand: invokeBrainInternal
+});
+
+// 13. WAKE WORD ("HELENA") & PERMANENT VOICE ACTIVATION ROUTES (FASE 2)
+app.get('/api/wakeword/status', (req, res) => {
+  res.json(wakeWordService.getStatusSnapshot());
+});
+
+app.post('/api/wakeword/config', (req, res) => {
+  res.json(wakeWordService.updateConfig(req.body || {}));
+});
+
+app.post('/api/wakeword/trigger', async (req, res) => {
+  try {
+    const { transcript, source, speakInBackground } = req.body || {};
+    const result = await wakeWordService.handleWakeWordUtterance(transcript || '', {
+      source: source || 'hud_voice',
+      forceExecute: Boolean(req.body?.forceExecute),
+      speakInBackground: Boolean(speakInBackground)
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/wakeword/cancel', (req, res) => {
+  res.json(wakeWordService.cancelListening(req.body?.reason || 'user_cancelled'));
+});
+
+app.post('/api/wakeword/history/clear', (req, res) => {
+  res.json(wakeWordService.clearHistory());
+});
+
+app.get('/api/wakeword/stream', (req, res) => {
+  wakeWordService.addSseClient(res);
+});
+
+// 14. STRUCTURED PERSISTENT MEMORY & PRIVACY CONTROLS (FASE 3)
+app.get('/api/memory/structured', (req, res) => {
+  res.json(memoryStore.getMemorySnapshot());
+});
+
+app.post('/api/memory/structured/item', (req, res) => {
+  const { category, item } = req.body || {};
+  if (category === 'preference') {
+    return res.json({ success: true, item: memoryStore.setPreference(item?.key || 'custom', item?.value, item?.category) });
+  }
+  if (category === 'authorizedInfo') {
+    return res.json({ success: true, item: memoryStore.upsertAuthorizedInfo(item || {}) });
+  }
+  if (category === 'project') {
+    return res.json({ success: true, item: memoryStore.upsertProject(item || {}) });
+  }
+  if (category === 'decision') {
+    return res.json({ success: true, item: memoryStore.recordDecision(item || {}) });
+  }
+  res.status(400).json({ error: 'Categoria inválida. Use preference, authorizedInfo, project ou decision.' });
+});
+
+app.delete('/api/memory/structured/item', (req, res) => {
+  const { section, id } = req.body || {};
+  res.json(memoryStore.deleteMemoryItem(section, id));
+});
+
+app.post('/api/memory/privacy', (req, res) => {
+  res.json({ success: true, privacyControls: memoryStore.updatePrivacyControls(req.body || {}) });
+});
+
+app.get('/api/memory/agent-context/:agentId', (req, res) => {
+  res.json({
+    agentId: req.params.agentId,
+    scopedContext: memoryStore.getAgentScopedContext(req.params.agentId)
+  });
+});
+
+// 15. DESKTOP MODES (MODO 1 BACKGROUND vs MODO 2 HUD) & WINDOWS AUTO-START (FASE 1)
+app.get('/api/system/desktop-config', (req, res) => {
+  const memSnap = memoryStore.getMemorySnapshot();
+  const autoStart = windowsTools.getWindowsAutoStartDetails();
+  res.json({
+    desktopConfig: memSnap.desktopConfig,
+    autoStart
+  });
+});
+
+app.post('/api/system/desktop-config', (req, res) => {
+  const updated = memoryStore.updateDesktopConfig(req.body || {});
+  let autoStartResult = windowsTools.getWindowsAutoStartDetails();
+  if (typeof req.body?.autoStartWindows === 'boolean' || req.body?.startupMode) {
+    autoStartResult = windowsTools.setWindowsAutoStart(
+      req.body?.autoStartWindows !== undefined ? Boolean(req.body.autoStartWindows) : autoStartResult.enabled,
+      updated.startupMode || 'background'
+    );
+  }
+  res.json({
+    success: true,
+    desktopConfig: updated,
+    autoStart: autoStartResult
+  });
+});
+
+// 16. VALIDATED WINDOWS TOOLS & PER-AGENT PERMISSIONS (FASE 3 & 4)
+app.get('/api/helena/tools/schemas', (req, res) => {
+  res.json({
+    tools: windowsTools.WINDOWS_TOOL_SCHEMAS
+  });
+});
+
+app.post('/api/helena/tools/execute', (req, res) => {
+  const { agentId, toolName, params, confirmed } = req.body || {};
+  const result = windowsTools.executeValidatedTool({
+    agentId: agentId || 'orchestrator',
+    toolName,
+    params: params || {},
+    confirmed: Boolean(confirmed)
+  });
+  res.json(result);
+});
+
+app.post('/api/helena/tools/folder/create', (req, res) => {
+  const { folderName, parentScope } = req.body || {};
+  const result = windowsTools.createUserFolder(folderName || 'Projetos', parentScope || 'desktop');
+  res.json(result);
+});
+
+app.post('/api/helena/tools/launch', (req, res) => {
+  const { target, projectPath } = req.body || {};
+  const result = windowsTools.launchAppOrProject(target || 'calc', projectPath || __dirname);
+  res.json(result);
+});
+
 // Fallback SPA catch-all
 app.get('*', (req, res) => {
   const indexHtml = path.join(distPath, 'index.html');
@@ -3843,15 +4136,28 @@ app.get('*', (req, res) => {
 
 if (require.main === module) {
   const HOST = '0.0.0.0';
-  app.listen(PORT, HOST, () => {
-    const localIp = getLocalIpAddress();
-    console.log(`=======================================================`);
-    console.log(`  H.E.L.E.N.A. CORE - Servidor Online e Operacional`);
-    console.log(`  Acesso Direto:   http://localhost:${PORT}`);
-    console.log(`  Acesso na Rede:  http://${localIp}:${PORT}`);
-    console.log(`  Ambiente Portátil Completo (Zero-API externa)`);
-    console.log(`=======================================================`);
-  });
+  function startListening(retries = 3) {
+    const serverInstance = app.listen(PORT, HOST, () => {
+      const localIp = getLocalIpAddress();
+      console.log(`=======================================================`);
+      console.log(`  H.E.L.E.N.A. CORE - Servidor Online e Operacional`);
+      console.log(`  Acesso Direto:   http://localhost:${PORT}`);
+      console.log(`  Acesso na Rede:  http://${localIp}:${PORT}`);
+      console.log(`  Ambiente Portátil Completo (Zero-API externa)`);
+      console.log(`=======================================================`);
+    });
+
+    serverInstance.on('error', (err) => {
+      if (err.code === 'EADDRINUSE' && retries > 0) {
+        console.warn(`[H.E.L.E.N.A.] Porta ${PORT} ocupada temporariamente. Nova tentativa em 1.5s... (${retries} restantes)`);
+        setTimeout(() => startListening(retries - 1), 1500);
+      } else {
+        console.error('[H.E.L.E.N.A.] Erro no servidor HTTP:', err.message);
+      }
+    });
+  }
+
+  startListening();
 }
 
 module.exports = app;

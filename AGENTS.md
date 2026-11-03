@@ -36,6 +36,10 @@ Refer to the 7 master documents before performing complex architectural tasks:
    - File manipulation tools (`searchLocalFiles`, `createUserDocument`, `renameUserFile`) must remain confined to user profile directories: `Desktop`, `Documents`, `Downloads`, and the HELENA workspace. Never touch `C:\Windows` or system directories.
 5. **Root and `client/` Synchronization:**
    - Maintain structural parity between backend modules in the root and in the `client/` directory to ensure portable zip generation (`scripts/build_portable_zip.js`) succeeds on offline client systems.
+6. **Multi-Agent Privacy Scopes & Validated Tool Execution:**
+   - Specialized agents (`academic`, `archivist`, `builder`, `reviewer`) only receive scoped memory via `memoryStore.getAgentScopedContext(agentId)` and can only execute OS tools listed in their `allowedAgents` schema (`windowsTools.executeValidatedTool`).
+7. **Permanent Wake Word ("HELENA") & Dual Desktop Modes:**
+   - `HELENA_Desktop.exe` supports **Modo 1 (`--background`)** (silent System Tray + continuous Wake Word listening) and **Modo 2 (HUD + 3D Office)**.
 
 ---
 
@@ -44,7 +48,7 @@ Refer to the 7 master documents before performing complex architectural tasks:
 Always run these commands from the project root using PowerShell:
 
 ```powershell
-# 1. Full Real Automated Test Suite (7 suites against real Windows OS)
+# 1. Full Real Automated Test Suite (12 E2E suites against real Windows OS)
 node scripts/validate_helena_full.js
 
 # 2. Frontend Build & Static Asset Generation

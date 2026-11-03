@@ -80,12 +80,13 @@ namespace HelenaDesktop
             autoStartMenuItem.Checked = IsAutoStartEnabled();
 
             ContextMenu menu = new ContextMenu(new MenuItem[] {
-                new MenuItem("Abrir H.E.L.E.N.A. (Console Desktop)", OnOpenConsole) { DefaultItem = true },
+                new MenuItem("Abrir H.E.L.E.N.A. (Modo 2: Interface HUD)", OnOpenConsole) { DefaultItem = true },
+                new MenuItem("Abrir Escritorio 3D Holografico (Multiagente)", OnOpen3DOffice),
                 new MenuItem("Parear Celular (QR Code / PIN)", OnOpenMobilePairing),
                 new MenuItem("-"),
                 autoStartMenuItem,
                 new MenuItem("Criar Atalhos na Area de Trabalho", OnCreateShortcuts),
-                new MenuItem("Reiniciar Motor Local", OnRestartServer),
+                new MenuItem("Reiniciar Motor Local & Wake Word", OnRestartServer),
                 new MenuItem("-"),
                 new MenuItem("Encerrar H.E.L.E.N.A. Completamente", OnExit)
             });
@@ -94,16 +95,16 @@ namespace HelenaDesktop
             {
                 Icon = customIcon,
                 ContextMenu = menu,
-                Text = "H.E.L.E.N.A. — Copiloto Pessoal (Ativa em 2º Plano)",
+                Text = "H.E.L.E.N.A. — Copiloto Pessoal & Wake Word (Ativa em 2º Plano)",
                 Visible = true
             };
 
             trayIcon.DoubleClick += OnOpenConsole;
 
             StartBackendServer();
-            trayIcon.ShowBalloonTip(3000, "H.E.L.E.N.A. Ativa", "A H.E.L.E.N.A. está rodando em segundo plano. Clique duas vezes no ícone da bandeja para abrir.", ToolTipIcon.Info);
 
-            // Abre a janela principal se não foi iniciada com --minimized
+            // Modo 1 (--background / --minimized): Assistente silenciosa na bandeja com Wake Word ativa
+            // Modo 2 (Padrao): Abre a interface completa HUD + 3D; fechar a janela mantem a bandeja ativa
             string[] args = Environment.GetCommandLineArgs();
             bool startMinimized = false;
             foreach (string a in args)
@@ -111,8 +112,13 @@ namespace HelenaDesktop
                 if (a == "--minimized" || a == "--background") startMinimized = true;
             }
 
-            if (!startMinimized)
+            if (startMinimized)
             {
+                trayIcon.ShowBalloonTip(3000, "H.E.L.E.N.A. — Modo 1 (Segundo Plano)", "Escuta por voz 'HELENA' ativa na bandeja do sistema. Diga 'HELENA' ou clique duas vezes para abrir.", ToolTipIcon.Info);
+            }
+            else
+            {
+                trayIcon.ShowBalloonTip(2500, "H.E.L.E.N.A. — Modo 2 (HUD + 3D)", "Interface principal iniciada. Fechar a janela mantera a H.E.L.E.N.A. ativa na bandeja.", ToolTipIcon.Info);
                 LaunchAppWindow("http://localhost:3000?mode=app");
             }
         }
@@ -206,6 +212,12 @@ namespace HelenaDesktop
         {
             StartBackendServer();
             LaunchAppWindow("http://localhost:3000?mode=app");
+        }
+
+        private void OnOpen3DOffice(object sender, EventArgs e)
+        {
+            StartBackendServer();
+            LaunchAppWindow("http://localhost:3000?mode=app&view=3d");
         }
 
         private void OnOpenMobilePairing(object sender, EventArgs e)

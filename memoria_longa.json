@@ -21,6 +21,48 @@
   ],
   "memoriasEpisodicas": [
     {
+      "id": "mem-1793665636222-9o6hlo",
+      "tipo": "organizacao_arquivos",
+      "resumo": "Varredura de arquivos via VAULT-FS: 62 itens em Downloads e 1 em Documentos.",
+      "data": "2026-11-03T00:27:16.222Z",
+      "relevancia": "Baixa"
+    },
+    {
+      "id": "mem-1793665605870-jbpq9n",
+      "tipo": "organizacao_arquivos",
+      "resumo": "Varredura de arquivos via VAULT-FS: 62 itens em Downloads e 1 em Documentos.",
+      "data": "2026-11-03T00:26:45.870Z",
+      "relevancia": "Baixa"
+    },
+    {
+      "id": "mem-1793665528484-hcp3bb",
+      "tipo": "organizacao_arquivos",
+      "resumo": "Varredura de arquivos via VAULT-FS: 62 itens em Downloads e 1 em Documentos.",
+      "data": "2026-11-03T00:25:28.484Z",
+      "relevancia": "Baixa"
+    },
+    {
+      "id": "mem-1793665413467-khbf46",
+      "tipo": "organizacao_arquivos",
+      "resumo": "Varredura de arquivos via VAULT-FS: 62 itens em Downloads e 1 em Documentos.",
+      "data": "2026-11-03T00:23:33.467Z",
+      "relevancia": "Baixa"
+    },
+    {
+      "id": "mem-1793663328766-76zvba",
+      "tipo": "diagnostico",
+      "resumo": "Diagnóstico técnico executado para o sintoma: por que meu computador está lento?",
+      "data": "2026-11-02T23:48:48.766Z",
+      "relevancia": "Alta"
+    },
+    {
+      "id": "mem-1793662823680-x07yzr",
+      "tipo": "diagnostico",
+      "resumo": "Diagnóstico técnico executado para o sintoma: por que meu computador está lento?",
+      "data": "2026-11-02T23:40:23.680Z",
+      "relevancia": "Alta"
+    },
+    {
       "id": "mem-1793570601465-j3b7nk",
       "tipo": "diagnostico",
       "resumo": "Diagnóstico técnico executado para o sintoma: por que meu computador está lento?",
@@ -365,10 +407,10 @@
     }
   ],
   "estatisticas": {
-    "totalInteracoes": 64,
+    "totalInteracoes": 70,
     "otimizacoesRealizadas": 8,
     "briefingsExecutados": 9,
-    "arquivosOrganizados": 27,
-    "ultimaInteracao": "2026-11-01T22:03:21.465Z"
+    "arquivosOrganizados": 31,
+    "ultimaInteracao": "2026-11-03T00:27:16.222Z"
   }
 }

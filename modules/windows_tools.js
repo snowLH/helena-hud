@@ -294,8 +294,160 @@ function getAllowedUserDirs() {
     desktop: path.join(home, 'Desktop'),
     documents: path.join(home, 'Documents'),
     downloads: path.join(home, 'Downloads'),
-    workspace: ROOT_DIR
+    workspace: path.join(home, 'Documents', 'PC_Inside_Workspace'),
+    helena: ROOT_DIR
   };
+}
+
+function logSystemServiceEvent(event, details = '') {
+  try {
+    const runtimeDir = path.join(ROOT_DIR, 'runtime');
+    if (!fs.existsSync(runtimeDir)) fs.mkdirSync(runtimeDir, { recursive: true });
+    const logFile = path.join(runtimeDir, 'system_service.log');
+    const line = `[${new Date().toISOString()}] [${event}] ${details}\n`;
+    fs.appendFileSync(logFile, line, 'utf-8');
+  } catch (_) {}
+}
+
+function createUserFolder(folderName, parentScope = 'desktop') {
+  const cleanName = String(folderName || '').trim().replace(/[<>:"/\\|?*]/g, '_');
+  if (!cleanName) {
+    return { success: false, error: 'Nome da pasta é obrigatório.' };
+  }
+  const dirs = getAllowedUserDirs();
+  const scopeKey = String(parentScope || 'desktop').toLowerCase();
+  const baseDir =
+    scopeKey.includes('doc') ? dirs.documents :
+    scopeKey.includes('down') ? dirs.downloads :
+    scopeKey.includes('work') ? dirs.workspace :
+    dirs.desktop;
+
+  if (!fs.existsSync(baseDir)) {
+    fs.mkdirSync(baseDir, { recursive: true });
+  }
+
+  const fullPath = path.join(baseDir, cleanName);
+  if (!isPathInsideAllowedDirs(fullPath)) {
+    return { success: false, error: 'Caminho fora dos diretórios autorizados do usuário.' };
+  }
+
+  const alreadyExisted = fs.existsSync(fullPath);
+  if (!alreadyExisted) {
+    fs.mkdirSync(fullPath, { recursive: true });
+  }
+
+  logSystemServiceEvent('CREATE_FOLDER', `Pasta "${cleanName}" garantida em ${fullPath}`);
+  return {
+    success: true,
+    alreadyExisted,
+    folderName: cleanName,
+    parentFolder: path.basename(baseDir),
+    fullPath,
+    path: fullPath,
+    message: alreadyExisted
+      ? `A pasta "${cleanName}" já existe em ${path.basename(baseDir)} (${fullPath}).`
+      : `Pasta "${cleanName}" criada com sucesso em ${path.basename(baseDir)} (${fullPath}).`
+  };
+}
+
+function launchAppOrProject(targetInput, projectPath = ROOT_DIR) {
+  const raw = String(targetInput || '').trim();
+  const lower = raw.toLowerCase();
+  const targetDir = path.resolve(projectPath || ROOT_DIR);
+
+  if (!IS_WIN) {
+    return { success: false, error: 'Abertura nativa disponível apenas no Windows.' };
+  }
+
+  try {
+    // 1. Projeto no Antigravity / VS Code / Cursor
+    if (lower.includes('antigravity') || lower.includes('meu projeto') || lower.includes('vscode') || lower.includes('vs code')) {
+      const agyExe = path.join(process.env.LOCALAPPDATA || '', 'Programs', 'antigravity', 'Antigravity.exe');
+      const codeExe = path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Microsoft VS Code', 'Code.exe');
+
+      if (fs.existsSync(agyExe)) {
+        exec(`"${agyExe}" "${targetDir}"`);
+        logSystemServiceEvent('LAUNCH_PROJECT', `Projeto aberto no Antigravity: ${targetDir}`);
+        return {
+          success: true,
+          app: 'Antigravity IDE',
+          targetPath: targetDir,
+          message: `Abrindo seu projeto (${path.basename(targetDir)}) diretamente no Antigravity IDE.`
+        };
+      }
+      if (fs.existsSync(codeExe)) {
+        exec(`"${codeExe}" "${targetDir}"`);
+        logSystemServiceEvent('LAUNCH_PROJECT', `Projeto aberto no VS Code: ${targetDir}`);
+        return {
+          success: true,
+          app: 'Visual Studio Code',
+          targetPath: targetDir,
+          message: `Abrindo seu projeto (${path.basename(targetDir)}) no editor de código.`
+        };
+      }
+      exec(`explorer.exe "${targetDir}"`);
+      return {
+        success: true,
+        app: 'Windows Explorer (Diretório do Projeto)',
+        targetPath: targetDir,
+        message: `Diretório do projeto (${targetDir}) aberto no Windows Explorer.`
+      };
+    }
+
+    // 2. Discord
+    if (lower.includes('discord')) {
+      const discordUpdate = path.join(process.env.LOCALAPPDATA || '', 'Discord', 'Update.exe');
+      if (fs.existsSync(discordUpdate)) {
+        exec(`"${discordUpdate}" --processStart Discord.exe`);
+      } else {
+        exec('start discord://');
+      }
+      logSystemServiceEvent('LAUNCH_APP', 'Discord acionado');
+      return {
+        success: true,
+        app: 'Discord',
+        message: 'Iniciando o Discord no seu computador, Comandante.'
+      };
+    }
+
+    // 3. Outros aplicativos comuns e sites
+    const appMap = [
+      { keys: ['calculadora', 'calc'], cmd: 'calc.exe', label: 'Calculadora do Windows' },
+      { keys: ['bloco de notas', 'notepad'], cmd: 'notepad.exe', label: 'Bloco de Notas' },
+      { keys: ['explorador', 'explorer'], cmd: 'explorer.exe', label: 'Explorador de Arquivos' },
+      { keys: ['terminal', 'prompt', 'cmd'], cmd: 'wt.exe || start cmd.exe', label: 'Terminal do Windows' },
+      { keys: ['gerenciador de tarefas', 'taskmgr'], cmd: 'taskmgr.exe', label: 'Gerenciador de Tarefas' },
+      { keys: ['spotify'], cmd: 'start spotify:', label: 'Spotify' },
+      { keys: ['chrome', 'navegador'], cmd: 'start chrome', label: 'Google Chrome' },
+      { keys: ['edge'], cmd: 'start msedge', label: 'Microsoft Edge' },
+      { keys: ['youtube'], cmd: 'start https://www.youtube.com', label: 'YouTube' },
+      { keys: ['github'], cmd: 'start https://github.com/snowLH/helena-hud', label: 'Repositório GitHub' }
+    ];
+
+    for (const item of appMap) {
+      if (item.keys.some((k) => lower.includes(k))) {
+        exec(item.cmd);
+        logSystemServiceEvent('LAUNCH_APP', item.label);
+        return {
+          success: true,
+          app: item.label,
+          message: `Abrindo ${item.label} imediatamente.`
+        };
+      }
+    }
+
+    if (lower.startsWith('http://') || lower.startsWith('https://')) {
+      exec(`start "" "${raw}"`);
+      return { success: true, app: raw, message: `Abrindo endereço ${raw} no navegador padrão.` };
+    }
+
+    return {
+      success: false,
+      error: `Aplicativo "${raw}" não consta na lista de inicialização segura.`
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 }
 
 function isPathInsideAllowedDirs(targetPath) {
@@ -457,18 +609,53 @@ function getWindowsAutoStart() {
   }
 }
 
-function setWindowsAutoStart(enable) {
+function getWindowsAutoStartDetails() {
+  if (!IS_WIN) return { enabled: false, mode: 'background', command: '' };
+  try {
+    const out = execSync(`reg query "${REG_RUN_KEY}" /v "${REG_VALUE_NAME}"`, {
+      timeout: 2000,
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    });
+    const enabled = out.includes(REG_VALUE_NAME);
+    const mode = out.includes('--background') ? 'background' : 'hud';
+    return { enabled, mode, command: out.trim() };
+  } catch (_) {
+    return { enabled: false, mode: 'background', command: '' };
+  }
+}
+
+function setWindowsAutoStart(enable, mode = 'background') {
   if (!IS_WIN) return { success: false, error: 'Suportado apenas no Windows.' };
   try {
     if (enable) {
+      const exeLauncher = path.join(ROOT_DIR, 'HELENA_Desktop.exe');
       const vbsLauncher = path.join(ROOT_DIR, 'HELENA_DESKTOP.vbs');
       const batLauncher = path.join(ROOT_DIR, 'Iniciar_HELENA.bat');
-      const targetCmd = fs.existsSync(vbsLauncher) ? `wscript.exe "${vbsLauncher}"` : `"${batLauncher}"`;
+      const modeFlag = mode === 'background' ? ' --background' : '';
+
+      let targetCmd = '';
+      if (fs.existsSync(exeLauncher)) {
+        targetCmd = `"${exeLauncher}"${modeFlag}`;
+      } else if (fs.existsSync(vbsLauncher)) {
+        targetCmd = `wscript.exe "${vbsLauncher}"`;
+      } else {
+        targetCmd = `"${batLauncher}"`;
+      }
+
       execSync(`reg add "${REG_RUN_KEY}" /v "${REG_VALUE_NAME}" /t REG_SZ /d "${targetCmd.replace(/"/g, '\\"')}" /f`, {
         timeout: 3000,
         stdio: 'ignore'
       });
-      return { success: true, enabled: true, message: 'H.E.L.E.N.A. configurada para iniciar junto com o Windows.' };
+      logSystemServiceEvent('AUTOSTART_CONFIG', `Ativado no modo: ${mode} (${targetCmd})`);
+      return {
+        success: true,
+        enabled: true,
+        mode,
+        message: mode === 'background'
+          ? 'H.E.L.E.N.A. configurada para iniciar com o Windows em MODO 1 (Assistente em Segundo Plano com Wake Word ativa).'
+          : 'H.E.L.E.N.A. configurada para iniciar com o Windows em MODO 2 (Interface HUD Completa).'
+      };
     } else {
       try {
         execSync(`reg delete "${REG_RUN_KEY}" /v "${REG_VALUE_NAME}" /f`, {
@@ -476,10 +663,122 @@ function setWindowsAutoStart(enable) {
           stdio: 'ignore'
         });
       } catch (_) {}
-      return { success: true, enabled: false, message: 'Inicialização automática com o Windows desativada.' };
+      logSystemServiceEvent('AUTOSTART_CONFIG', 'Inicialização automática desativada');
+      return { success: true, enabled: false, mode: 'disabled', message: 'Inicialização automática com o Windows desativada.' };
     }
   } catch (err) {
     return { success: false, error: 'Erro ao atualizar registro de inicialização: ' + err.message };
+  }
+}
+
+// 5. Sistema Modular de Ferramentas com Schemas, Validação e Permissões por Agente
+const WINDOWS_TOOL_SCHEMAS = {
+  get_system_snapshot: {
+    name: 'get_system_snapshot',
+    phase: 'CONSULTAR',
+    requiresConfirmation: false,
+    description: 'Consulta CPU, RAM, GPU, armazenamento, bateria, temperatura e processos reais do Windows.',
+    allowedAgents: ['orchestrator', 'academic', 'archivist', 'builder', 'reviewer']
+  },
+  search_local_files: {
+    name: 'search_local_files',
+    phase: 'CONSULTAR',
+    requiresConfirmation: false,
+    description: 'Pesquisa arquivos locais nas pastas autorizadas (Desktop, Documentos, Downloads, Workspace).',
+    allowedAgents: ['orchestrator', 'archivist', 'academic', 'builder']
+  },
+  create_user_folder: {
+    name: 'create_user_folder',
+    phase: 'EXECUTAR',
+    requiresConfirmation: false,
+    description: 'Cria uma nova pasta dentro de Desktop, Documentos ou Downloads.',
+    allowedAgents: ['orchestrator', 'archivist', 'builder']
+  },
+  create_user_document: {
+    name: 'create_user_document',
+    phase: 'EXECUTAR',
+    requiresConfirmation: false,
+    description: 'Cria um documento de texto ou código em diretório autorizado do usuário.',
+    allowedAgents: ['orchestrator', 'academic', 'builder', 'reviewer']
+  },
+  launch_app_or_project: {
+    name: 'launch_app_or_project',
+    phase: 'EXECUTAR',
+    requiresConfirmation: false,
+    description: 'Abre programas autorizados (Discord, Antigravity, VS Code, Calculadora, Navegador) ou projetos.',
+    allowedAgents: ['orchestrator', 'builder']
+  },
+  manage_windows: {
+    name: 'manage_windows',
+    phase: 'EXECUTAR',
+    requiresConfirmation: false,
+    description: 'Minimiza, restaura ou foca janelas ativas na Área de Trabalho.',
+    allowedAgents: ['orchestrator']
+  },
+  optimize_system: {
+    name: 'optimize_system',
+    phase: 'CONFIRMAR',
+    requiresConfirmation: true,
+    description: 'Executa limpeza de temporários e renovação de DNS (requer confirmação para ações destrutivas).',
+    allowedAgents: ['orchestrator']
+  },
+  folder_create: {
+    name: 'folder_create',
+    phase: 'EXECUTAR',
+    requiresConfirmation: false,
+    description: 'Cria uma nova pasta dentro de Desktop, Documentos ou Downloads.',
+    allowedAgents: ['orchestrator', 'archivist', 'builder']
+  },
+  process_terminate: {
+    name: 'process_terminate',
+    phase: 'CONFIRMAR',
+    requiresConfirmation: true,
+    description: 'Encerra um processo de usuário (requer confirmação explícita na fase CONFIRMAR).',
+    allowedAgents: ['orchestrator']
+  }
+};
+
+function executeValidatedTool({ agentId = 'orchestrator', toolName, params = {}, confirmed = false }) {
+  const schema = WINDOWS_TOOL_SCHEMAS[toolName];
+  if (!schema) {
+    return { ok: false, success: false, phase: 'ERRO', error: `Ferramenta "${toolName}" não registrada no catálogo seguro.` };
+  }
+  if (!schema.allowedAgents.includes(agentId)) {
+    return {
+      ok: false,
+      success: false,
+      phase: 'PREPARAR',
+      error: `O agente "${agentId}" não possui permissão para executar a ferramenta "${toolName}".`
+    };
+  }
+  if (schema.requiresConfirmation && !confirmed) {
+    return {
+      ok: false,
+      success: false,
+      requiresConfirmation: true,
+      phase: 'CONFIRMAR',
+      message: `A ferramenta "${toolName}" realiza alterações no sistema e requer confirmação explícita.`
+    };
+  }
+
+  logSystemServiceEvent('TOOL_EXEC', `Agente=${agentId} | Tool=${toolName} | Fase=${schema.phase}`);
+
+  switch (toolName) {
+    case 'get_system_snapshot':
+      return { ok: true, success: true, phase: schema.phase, result: getFullSystemSnapshot(Boolean(params.force)) };
+    case 'search_local_files':
+      return { ok: true, success: true, phase: schema.phase, result: searchLocalFiles(params.query, params.folderScope, params.maxResults) };
+    case 'create_user_folder':
+    case 'folder_create':
+      return { ok: true, success: true, phase: schema.phase, result: createUserFolder(params.folderName, params.parentScope) };
+    case 'create_user_document':
+      return { ok: true, success: true, phase: schema.phase, result: createUserDocument(params.fileName, params.content, params.targetFolder) };
+    case 'launch_app_or_project':
+      return { ok: true, success: true, phase: schema.phase, result: launchAppOrProject(params.target, params.projectPath) };
+    case 'manage_windows':
+      return { ok: true, success: true, phase: schema.phase, result: manageWindow(params.action, params.target) };
+    default:
+      return { ok: false, success: false, phase: 'ERRO', error: 'Implementação de ferramenta não vinculada.' };
   }
 }
 
@@ -531,9 +830,15 @@ module.exports = {
   manageWindow,
   searchLocalFiles,
   createUserDocument,
+  createUserFolder,
   renameUserFile,
   openFolderOrFile,
+  launchAppOrProject,
   getWindowsAutoStart,
+  getWindowsAutoStartDetails,
   setWindowsAutoStart,
-  createDesktopAndStartMenuShortcuts
+  createDesktopAndStartMenuShortcuts,
+  logSystemServiceEvent,
+  WINDOWS_TOOL_SCHEMAS,
+  executeValidatedTool
 };

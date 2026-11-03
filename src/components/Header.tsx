@@ -41,6 +41,10 @@ interface HeaderProps {
   onOpenStudy?: () => void;
   onOpenDownload?: () => void;
   onOpenMobilePairing?: () => void;
+  onOpenWakeWord?: () => void;
+  wakeWordState?: 'PASSIVE_LISTENING' | 'AWAITING_COMMAND' | 'PROCESSING_COMMAND' | 'DISABLED';
+  viewMode?: 'hud' | '3d';
+  onToggleViewMode?: (mode?: 'hud' | '3d') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -55,7 +59,11 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenMemoryProfile,
   onOpenStudy,
   onOpenDownload,
-  onOpenMobilePairing
+  onOpenMobilePairing,
+  onOpenWakeWord,
+  wakeWordState = 'PASSIVE_LISTENING',
+  viewMode = 'hud',
+  onToggleViewMode
 }) => {
   const [timeStr, setTimeStr] = useState<string>('');
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
@@ -248,8 +256,69 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* 2. Center: Tactical Action Hub (Comandos, Memória & Perfil, Ferramentas Dropdown) */}
+      {/* 2. Center: Tactical Action Hub (Alternador HUD <-> Visão 3D, Comandos, Memória & Perfil, Ferramentas Dropdown) */}
       <div className="flex items-center gap-1.5 sm:gap-2">
+        {onToggleViewMode && (
+          <div className="flex items-center p-0.5 rounded-xl bg-slate-900/90 border border-amber-400/50 shadow-[0_0_15px_rgba(250,204,21,0.25)] shrink-0">
+            <button
+              onClick={() => {
+                soundSynth.playTelemetryBeep();
+                onToggleViewMode('hud');
+              }}
+              title="Alternar para o Painel de Controle HUD Clássico (Ctrl+3)"
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold tracking-wider transition-all cursor-pointer ${
+                viewMode === 'hud'
+                  ? 'bg-cyan-500 text-slate-950 shadow-[0_0_10px_rgba(0,240,255,0.6)]'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <Gauge className="w-3.5 h-3.5" />
+              <span>PAINEL HUD</span>
+            </button>
+            <button
+              onClick={() => {
+                soundSynth.playTelemetryBeep();
+                onToggleViewMode('3d');
+              }}
+              title="Alternar em tempo real para o Escritório 3D Multi-IA da H.E.L.E.N.A. (Ctrl+3)"
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold tracking-wider transition-all cursor-pointer ${
+                viewMode === '3d'
+                  ? 'bg-gradient-to-r from-amber-400 to-cyan-400 text-slate-950 shadow-[0_0_12px_rgba(250,204,21,0.6)]'
+                  : 'text-amber-300 hover:text-white'
+              }`}
+            >
+              <Boxes className="w-3.5 h-3.5" />
+              <span>VISÃO 3D (QG)</span>
+            </button>
+          </div>
+        )}
+
+        {onOpenWakeWord && (
+          <button
+            onClick={() => {
+              soundSynth.playTelemetryBeep();
+              onOpenWakeWord();
+            }}
+            title="Configurar Ativação por Voz Permanente — Wake Word ('HELENA') e Modos de Execução Desktop"
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-mono transition-all cursor-pointer shrink-0 ${
+              wakeWordState === 'AWAITING_COMMAND'
+                ? 'border-amber-400 bg-amber-950/80 text-amber-200 animate-pulse shadow-[0_0_15px_rgba(251,191,36,0.5)]'
+                : wakeWordState === 'DISABLED'
+                  ? 'border-red-500/40 bg-red-950/40 text-red-300'
+                  : 'border-emerald-400/60 bg-emerald-950/70 hover:bg-emerald-900/90 text-emerald-200 shadow-[0_0_12px_rgba(52,211,153,0.3)]'
+            }`}
+          >
+            <Mic className={`w-3.5 h-3.5 ${wakeWordState === 'DISABLED' ? 'text-red-400' : 'text-emerald-400 animate-pulse'}`} />
+            <span className="font-semibold hidden sm:inline">
+              {wakeWordState === 'AWAITING_COMMAND'
+                ? 'OUVINDO: DIGA O COMANDO...'
+                : wakeWordState === 'DISABLED'
+                  ? 'WAKE: OFF'
+                  : 'WAKE: "HELENA"'}
+            </span>
+          </button>
+        )}
+
         {onOpenMemoryProfile && (
           <button
             onClick={() => {

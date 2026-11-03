@@ -56,6 +56,7 @@ export const MobileControllerView: React.FC<MobileControllerViewProps> = ({ onEx
   // Telemetry & PC State
   const [pcConnected, setPcConnected] = useState<boolean>(false);
   const [telemetry, setTelemetry] = useState<any>(null);
+  const [ecosystemState, setEcosystemState] = useState<any>(null);
 
   // Chat State
   const [chatInput, setChatInput] = useState<string>('');
@@ -120,6 +121,12 @@ export const MobileControllerView: React.FC<MobileControllerViewProps> = ({ onEx
           setMessages(data.recentHistory);
         }
       }
+      try {
+        const ecoRes = await fetch('/api/ecosystem/state');
+        if (ecoRes.ok) {
+          setEcosystemState(await ecoRes.json());
+        }
+      } catch (_) {}
     } catch (_) {
       setPcConnected(false);
     }
@@ -748,6 +755,47 @@ export const MobileControllerView: React.FC<MobileControllerViewProps> = ({ onEx
         {/* TAB 4: ALERTAS E FILA DE APROVAÇÃO */}
         {activeTab === 'activity' && (
           <div className="space-y-4">
+            {/* Multi-Agent & 3D Office Live Status + Interrupt Button (Section 12) */}
+            <div className="p-4 rounded-2xl bg-slate-900/80 border border-cyan-500/30 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-mono font-bold text-cyan-400 flex items-center gap-1.5">
+                  <Layers className="w-4 h-4" /> AGENTES & ESCRITÓRIO 3D ({ecosystemState?.officeControl?.activeAgents || 0}/5 ATIVOS)
+                </h3>
+                <button
+                  onClick={async () => {
+                    speechController.stop();
+                    await fetch('/api/wakeword/cancel', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ reason: 'mobile_remote_interrupt' })
+                    });
+                    setActionStatusMsg('Escuta e fala interrompidas remotamente.');
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-rose-500/20 border border-rose-500/50 text-rose-300 text-[10px] font-mono font-bold cursor-pointer"
+                >
+                  ⏹ INTERROMPER
+                </button>
+              </div>
+              <div className="space-y-1.5">
+                {Object.values(ecosystemState?.agents || {}).map((ag: any) => (
+                  <div
+                    key={ag.id}
+                    className="p-2 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between text-xs font-mono"
+                  >
+                    <div>
+                      <div className="font-bold text-white">{ag.shortName || ag.name}</div>
+                      <div className="text-[10px] text-slate-400 truncate max-w-[200px]">
+                        {ag.statusText || ag.role}
+                      </div>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-300">
+                      {ag.status?.toUpperCase()} • {ag.progress || 0}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-2">
               <h3 className="text-xs font-mono font-bold text-cyan-400 flex items-center gap-1.5">
                 <Bell className="w-4 h-4" /> ALERTAS E DIAGNÓSTICO ATUAL
